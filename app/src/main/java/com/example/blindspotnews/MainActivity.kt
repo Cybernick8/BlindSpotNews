@@ -1,35 +1,50 @@
 package com.example.blindspotnews
 
 import android.os.Bundle
-import com.google.android.material.bottomnavigation.BottomNavigationView
-import androidx.appcompat.app.AppCompatActivity
-import androidx.navigation.findNavController
-import androidx.navigation.ui.AppBarConfiguration
-import androidx.navigation.ui.setupActionBarWithNavController
-import androidx.navigation.ui.setupWithNavController
-import com.example.blindspotnews.databinding.ActivityMainBinding
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import com.example.blindspotnews.ui.ScreenOne
+import com.example.blindspotnews.ui.ScreenTwo
 
-class MainActivity : AppCompatActivity() {
-
-    private lateinit var binding: ActivityMainBinding
-
+class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        setContent {
+            AppNavigation()
+        }
+    }
+}
 
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+@Composable
+fun AppNavigation() {
+    val navController = rememberNavController()
+    NavHost(navController = navController, startDestination = "screen_one") {
+        composable("screen_one") {
+            ScreenOneWithButton(navController)
+        }
+        composable("screen_two") {
+            ScreenTwoWithButton(navController)
+        }
+    }
+}
 
-        val navView: BottomNavigationView = binding.navView
+@Composable
+fun ScreenOneWithButton(navController: NavHostController) {
+    Button(onClick = { navController.navigate("screen_two") }) {
+        Text("Go to Screen Two")
+    }
+}
 
-        val navController = findNavController(R.id.nav_host_fragment_activity_main)
-        // Passing each menu ID as a set of Ids because each
-        // menu should be considered as top level destinations.
-        val appBarConfiguration = AppBarConfiguration(
-            setOf(
-                R.id.navigation_home, R.id.navigation_dashboard, R.id.navigation_notifications
-            )
-        )
-        setupActionBarWithNavController(navController, appBarConfiguration)
-        navView.setupWithNavController(navController)
+@Composable
+fun ScreenTwoWithButton(navController: NavHostController) {
+    Button(onClick = { navController.navigate("screen_one") }) {
+        Text("Go back to Screen One")
     }
 }

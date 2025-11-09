@@ -1,21 +1,28 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.compose.compiler)
 }
 
 android {
     namespace = "com.example.blindspotnews"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.blindspotnews"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
+
+    buildFeatures { compose = true }
+    //composeOptions {
+        // Must match your Kotlin plugin 1.9.24
+        //kotlinCompilerExtensionVersion = "1.5.15"
+    //}
 
     buildTypes {
         release {
@@ -27,11 +34,11 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = "17"
     }
     buildFeatures {
         viewBinding = true
@@ -39,15 +46,35 @@ android {
 }
 
 dependencies {
-
+    // Pin Core so it doesn't demand SDK 36 / AGP 8.9+
+    constraints {
+        implementation("androidx.core:core:1.13.1")
+        implementation("androidx.core:core-ktx:1.13.1")
+    }
+    // Base AndroidX (keep if you use them)
+    implementation(libs.androidx.core)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
-    implementation(libs.androidx.constraintlayout)
     implementation(libs.androidx.lifecycle.livedata.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
-    implementation(libs.androidx.navigation.fragment.ktx)
-    implementation(libs.androidx.navigation.ui.ktx)
+    // ----- Jetpack Compose -----
+    // One BOM to rule them all (works with Kotlin 1.9.24 / compiler 1.5.15)
+    implementation(platform(libs.androidx.compose.bom.v20241001))
+    implementation(libs.ui)
+    implementation(libs.ui.tooling.preview)
+    implementation(libs.androidx.material3.android)
+    //implementation(libs.androidx.navigation.compose.android)
+    //implementation(libs.androidx.navigation.compose.jvmstubs)
+    debugImplementation(libs.ui.tooling)
+    implementation(libs.material3)
+    implementation(libs.androidx.foundation)  // Box/Row/Column/etc.
+    // Activity integration for Compose (compatible with SDK 35 / AGP 8.8.x)
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.activity.ktx) // optional but keeps versions aligned
+    // Navigation for Compose (stable)
+    implementation(libs.androidx.navigation.compose)
+    // Tests
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
