@@ -29,7 +29,7 @@ fun ScreenTwo(navController: NavController) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Upload buttons
+        // Upload Video Button
         Button(
             onClick = { /* TODO: handle video upload */ },
             modifier = Modifier
@@ -39,6 +39,7 @@ fun ScreenTwo(navController: NavController) {
             Text("Upload Video")
         }
 
+        // Upload Text Button
         Button(
             onClick = { /* TODO: handle text upload */ },
             modifier = Modifier
@@ -50,7 +51,18 @@ fun ScreenTwo(navController: NavController) {
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Navigation back button
+        Button(
+            onClick = { navController.navigate("screen_output") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp)
+        ) {
+            Text("Go to Output Screen")
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Back to Home Button
         Button(onClick = { navController.navigate("screen_one") }) {
             Text("Back to Home")
         }

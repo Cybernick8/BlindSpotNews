@@ -13,6 +13,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.blindspotnews.ui.ScreenOne
+import com.example.blindspotnews.ui.ScreenOutput
 import com.example.blindspotnews.ui.ScreenTwo
 
 class MainActivity : ComponentActivity() {
@@ -36,5 +37,7 @@ fun AppNavigation() {
     NavHost(navController = navController, startDestination = "screen_one") {
         composable("screen_one") { ScreenOne(navController) }
         composable("screen_two") { ScreenTwo(navController) }
+        composable("screen_output") { ScreenOutput(navController) }
     }
 }
+
