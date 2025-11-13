@@ -9,10 +9,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.example.blindspotnews.backend.AnalysisResultStore
 
 @Composable
 fun ScreenOutput(navController: NavController) {
-    var outputText by remember { mutableStateOf(TextFieldValue("")) }
+    // Get whatever the last result was (or empty string if null)
+    val initialText = AnalysisResultStore.lastResult ?: ""
+
+    var outputText by remember { mutableStateOf(TextFieldValue(initialText)) }
 
     Column(
         modifier = Modifier

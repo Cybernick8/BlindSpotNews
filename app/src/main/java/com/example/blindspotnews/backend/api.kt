@@ -62,7 +62,7 @@ class api {
 
         val prompt = """
         Analyze this article. Output only:
-        5 bullet points showing false info or bias.
+        5 bullet points showing false info or bias. 
         Title each with the quoted text.
         Start each description with "left", "right", or "fake" (for left bias, right bias, or false info).
         At the end, write “Bias: X/10” rating its overall bias or inaccuracy.
@@ -100,6 +100,7 @@ class api {
 
             client.newCall(request).execute().use { response ->
                 val json = JSONObject(response.body?.string() ?: "{}")
+                /* Previous code 11/11
                 if (json.has("error")) {
                     Log.e("API_ERROR", "OpenAI error: ${json.getJSONObject("error").getString("message")}")
                 }
@@ -108,12 +109,26 @@ class api {
                 json.optJSONArray("choices")
                     ?.optJSONObject(0)
                     ?.optJSONObject("message")
+                    ?.optString("content")*/
+                if (json.has("error")) {
+                    val msg = json.getJSONObject("error").getString("message")
+                    Log.e("API_ERROR", "OpenAI error: $msg")
+                    return@use "OpenAI error: $msg"
+                }
+
+                Log.d("API_DEBUG", "OpenAI JSON: $json")
+
+                json.optJSONArray("choices")
+                    ?.optJSONObject(0)
+                    ?.optJSONObject("message")
                     ?.optString("content")
+
             }
         } catch (e: Exception) {
             Log.e("API_ERROR", "OpenAI failed: ${e.message}")
-            null
+            "OpenAI exception: ${e.message ?: "unknown error"}"
         }
+
     }
 
     suspend fun analyzeVideoOrArticle(url: String, isVideo: Boolean): String? {
