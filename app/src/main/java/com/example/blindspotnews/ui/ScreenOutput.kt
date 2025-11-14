@@ -9,10 +9,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.example.blindspotnews.backend.AnalysisResultStore
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+
 
 @Composable
 fun ScreenOutput(navController: NavController) {
-    var outputText by remember { mutableStateOf(TextFieldValue("")) }
+    // Get whatever the last result was (or empty string if null)
+    val initialText = AnalysisResultStore.lastResult ?: ""
+
+    var outputText by remember { mutableStateOf(TextFieldValue(initialText)) }
+
+    val scrollState = rememberScrollState()
 
     Column(
         modifier = Modifier
@@ -30,18 +39,21 @@ fun ScreenOutput(navController: NavController) {
                 .padding(bottom = 24.dp)
         )
 
-        // Output box (currently empty)
-        OutlinedTextField(
-            value = outputText,
-            onValueChange = { outputText = it },
-            placeholder = { Text("Your analysis output will appear here...") },
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .padding(bottom = 24.dp),
-            singleLine = false,
-            maxLines = 20
-        )
+                .verticalScroll(scrollState)    // Enables scrolling
+        ) {
+            OutlinedTextField(
+                value = outputText,
+                onValueChange = { outputText = it },
+                placeholder = { Text("Your analysis output will appear here...") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = false,
+                maxLines = Int.MAX_VALUE         // Allows longer output
+            )
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
 

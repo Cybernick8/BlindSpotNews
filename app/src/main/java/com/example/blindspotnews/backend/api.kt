@@ -19,7 +19,7 @@ class api {
             .readTimeout(60, TimeUnit.SECONDS)
             .build()
 
-        val supadataApiKey = "sd_536f690cc94529b95c719b9d297717e2"
+        val supadataApiKey = "sd_b2a89ace15aaf36624c00853d67c4235"
         val supadataUrl = "https://api.supadata.ai/v1/transcript"
         //val supadataUrl = "https://api.supadata.ai/extract/tiktok/transcript"
 
@@ -57,12 +57,12 @@ class api {
 
     suspend fun analyzeBias(text: String): String? {
         val client = OkHttpClient()
-        val openAiKey = "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"
+        // val openAiKey = api key goes here
         val openAiUrl = "https://api.openai.com/v1/chat/completions"
 
         val prompt = """
         Analyze this article. Output only:
-        5 bullet points showing false info or bias.
+        5 bullet points showing false info or bias. 
         Title each with the quoted text.
         Start each description with "left", "right", or "fake" (for left bias, right bias, or false info).
         At the end, write “Bias: X/10” rating its overall bias or inaccuracy.
@@ -100,6 +100,7 @@ class api {
 
             client.newCall(request).execute().use { response ->
                 val json = JSONObject(response.body?.string() ?: "{}")
+                /* Previous code 11/11
                 if (json.has("error")) {
                     Log.e("API_ERROR", "OpenAI error: ${json.getJSONObject("error").getString("message")}")
                 }
@@ -108,12 +109,26 @@ class api {
                 json.optJSONArray("choices")
                     ?.optJSONObject(0)
                     ?.optJSONObject("message")
+                    ?.optString("content")*/
+                if (json.has("error")) {
+                    val msg = json.getJSONObject("error").getString("message")
+                    Log.e("API_ERROR", "OpenAI error: $msg")
+                    return@use "OpenAI error: $msg"
+                }
+
+                Log.d("API_DEBUG", "OpenAI JSON: $json")
+
+                json.optJSONArray("choices")
+                    ?.optJSONObject(0)
+                    ?.optJSONObject("message")
                     ?.optString("content")
+
             }
         } catch (e: Exception) {
             Log.e("API_ERROR", "OpenAI failed: ${e.message}")
-            null
+            "OpenAI exception: ${e.message ?: "unknown error"}"
         }
+
     }
 
     suspend fun analyzeVideoOrArticle(url: String, isVideo: Boolean): String? {
