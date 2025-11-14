@@ -19,7 +19,7 @@ class api {
             .readTimeout(60, TimeUnit.SECONDS)
             .build()
 
-        val supadataApiKey = "sd_536f690cc94529b95c719b9d297717e2"
+        val supadataApiKey = "sd_b2a89ace15aaf36624c00853d67c4235"
         val supadataUrl = "https://api.supadata.ai/v1/transcript"
         //val supadataUrl = "https://api.supadata.ai/extract/tiktok/transcript"
 
@@ -57,7 +57,7 @@ class api {
 
     suspend fun analyzeBias(text: String): String? {
         val client = OkHttpClient()
-        val openAiKey = "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"
+        // val openAiKey = api key goes here
         val openAiUrl = "https://api.openai.com/v1/chat/completions"
 
         val prompt = """
