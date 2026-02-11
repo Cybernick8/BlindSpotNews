@@ -15,10 +15,12 @@ import androidx.navigation.compose.rememberNavController
 import com.example.blindspotnews.ui.ScreenOne
 import com.example.blindspotnews.ui.ScreenOutput
 import com.example.blindspotnews.ui.ScreenTwo
+import com.google.firebase.FirebaseApp
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        FirebaseApp.initializeApp(this)
         setContent {
             // Force a light background for visibility with black text
             Surface(
