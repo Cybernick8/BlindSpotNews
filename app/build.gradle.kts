@@ -64,7 +64,7 @@ dependencies {
     implementation(libs.ui)
     implementation(libs.ui.tooling.preview)
     implementation(libs.androidx.material3.android)
-    //implementation(libs.androidx.navigation.compose.android)
+        //implementation(libs.androidx.navigation.compose.android)
     //implementation(libs.androidx.navigation.compose.jvmstubs)
     debugImplementation(libs.ui.tooling)
     implementation(libs.material3)
@@ -80,4 +80,8 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
     implementation("com.squareup.okhttp3:okhttp:4.9.3")
     implementation("org.jsoup:jsoup:1.17.2")
+    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
+    implementation("com.google.firebase:firebase-functions-ktx")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
+
 }

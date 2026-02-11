@@ -9,10 +9,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.example.blindspotnews.backend.Api
 
 @Composable
 fun ScreenOutput(navController: NavController) {
-    var outputText by remember { mutableStateOf(TextFieldValue("")) }
+    var outputText by remember { mutableStateOf("Loading...") }
+
+    val url = "https://www.tiktok.com/@thetalkshour/video/7505110474585836831?is_from_webapp=1&sender_device=pc&web_id=7551590510020920887"
+    val isVideo = true
+    LaunchedEffect(url, isVideo) {
+        try {
+            outputText = Api().analyzeVideoOrArticle(url, isVideo)
+        } catch (e: Exception) {
+            outputText = "Error: ${e.message}"
+        }
+    }
 
     Column(
         modifier = Modifier
