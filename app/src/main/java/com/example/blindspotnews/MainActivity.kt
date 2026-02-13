@@ -3,21 +3,32 @@ package com.example.blindspotnews
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.material3.Button
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
-import androidx.navigation.NavHostController
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.blindspotnews.ui.ScreenOne
+import com.example.blindspotnews.ui.ScreenOutput
 import com.example.blindspotnews.ui.ScreenTwo
+import com.google.firebase.FirebaseApp
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        FirebaseApp.initializeApp(this)
         setContent {
-            AppNavigation()
+            // Force a light background for visibility with black text
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = Color.White  // ensures black text is visible even in system dark mode
+            ) {
+                AppNavigation()
+            }
         }
     }
 }
@@ -26,25 +37,9 @@ class MainActivity : ComponentActivity() {
 fun AppNavigation() {
     val navController = rememberNavController()
     NavHost(navController = navController, startDestination = "screen_one") {
-        composable("screen_one") {
-            ScreenOneWithButton(navController)
-        }
-        composable("screen_two") {
-            ScreenTwoWithButton(navController)
-        }
+        composable("screen_one") { ScreenOne(navController) }
+        composable("screen_two") { ScreenTwo(navController) }
+        composable("screen_output") { ScreenOutput(navController) }
     }
 }
 
-@Composable
-fun ScreenOneWithButton(navController: NavHostController) {
-    Button(onClick = { navController.navigate("screen_two") }) {
-        Text("Go to Screen Two")
-    }
-}
-
-@Composable
-fun ScreenTwoWithButton(navController: NavHostController) {
-    Button(onClick = { navController.navigate("screen_one") }) {
-        Text("Go back to Screen One")
-    }
-}
