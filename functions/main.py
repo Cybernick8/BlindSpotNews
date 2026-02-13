@@ -113,3 +113,5 @@ def analyze_url(req: https_fn.CallableRequest):
             code=https_fn.FunctionsErrorCode.INTERNAL,
             message=f"OpenAI request failed: {e}"
         )
+
+# firebase deploy --only functions

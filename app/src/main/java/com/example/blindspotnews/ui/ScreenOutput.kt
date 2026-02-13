@@ -10,20 +10,37 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.blindspotnews.backend.Api
+import com.google.firebase.auth.FirebaseAuth
 
 @Composable
 fun ScreenOutput(navController: NavController) {
     var outputText by remember { mutableStateOf("Loading...") }
+    var isAuthenticated by remember { mutableStateOf(false) }
 
     val url = "https://www.tiktok.com/@thetalkshour/video/7505110474585836831?is_from_webapp=1&sender_device=pc&web_id=7551590510020920887"
     val isVideo = true
-    LaunchedEffect(url, isVideo) {
-        try {
-            outputText = Api().analyzeVideoOrArticle(url, isVideo)
-        } catch (e: Exception) {
-            outputText = "Error: ${e.message}"
+
+    FirebaseAuth.getInstance()
+        .signInAnonymously()
+        .addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                isAuthenticated = true
+            }
+            else{
+                outputText = "Authentification Failed. Try again."
+            }
+        }
+
+    LaunchedEffect(isAuthenticated) {
+        if(isAuthenticated) {
+            try {
+                outputText = Api().analyzeVideoOrArticle(url, isVideo)
+            } catch (e: Exception) {
+                outputText = "Error: ${e.message}"
+            }
         }
     }
+
 
     Column(
         modifier = Modifier
