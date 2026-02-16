@@ -23,6 +23,7 @@ navigationComposeAndroid = "2.9.6"
 navigationComposeJvmstubs = "2.9.6"
 firebaseCommonKtx = "22.0.1"
 firebaseAuthKtx = "24.0.1"
+lifecycleViewmodelKtxVersion = "2.10.0"
 
 [libraries]
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
@@ -55,6 +56,7 @@ ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
 androidx-material3-android = { group = "androidx.compose.material3", name = "material3-android", version.ref = "material3Android" }
 firebase-common-ktx = { group = "com.google.firebase", name = "firebase-common-ktx", version.ref = "firebaseCommonKtx" }
 firebase-auth-ktx = { group = "com.google.firebase", name = "firebase-auth-ktx", version.ref = "firebaseAuthKtx" }
+lifecycle-viewmodel-ktx = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-ktx", version.ref = "lifecycleViewmodelKtxVersion" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

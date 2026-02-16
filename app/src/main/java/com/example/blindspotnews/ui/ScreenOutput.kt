@@ -8,39 +8,25 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.blindspotnews.backend.Api
+import com.example.blindspotnews.backend.OutputViewModel
 import com.google.firebase.auth.FirebaseAuth
 
 @Composable
-fun ScreenOutput(navController: NavController) {
+fun ScreenOutput(navController: NavController, viewModel: OutputViewModel = viewModel()) {
     var outputText by remember { mutableStateOf("Loading...") }
-    var isAuthenticated by remember { mutableStateOf(false) }
 
     val url = "https://www.tiktok.com/@thetalkshour/video/7505110474585836831?is_from_webapp=1&sender_device=pc&web_id=7551590510020920887"
     val isVideo = true
 
-    FirebaseAuth.getInstance()
-        .signInAnonymously()
-        .addOnCompleteListener { task ->
-            if (task.isSuccessful) {
-                isAuthenticated = true
-            }
-            else{
-                outputText = "Authentification Failed. Try again."
-            }
-        }
-
-    LaunchedEffect(isAuthenticated) {
-        if(isAuthenticated) {
-            try {
-                outputText = Api().analyzeVideoOrArticle(url, isVideo)
-            } catch (e: Exception) {
-                outputText = "Error: ${e.message}"
-            }
-        }
+    LaunchedEffect(Unit){
+        viewModel.analyze(url, isVideo)
     }
+    outputText = viewModel.outputText
 
+    Text("UID: ${FirebaseAuth.getInstance().currentUser?.uid}")
 
     Column(
         modifier = Modifier

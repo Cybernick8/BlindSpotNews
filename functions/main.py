@@ -7,6 +7,11 @@ from firebase_functions.params import SecretParam
 from openai import OpenAI
 import requests
 from bs4 import BeautifulSoup
+import firebase_admin
+from firebase_admin import initialize_app
+
+initialize_app()
+
 
 OPENAI_API_KEY = SecretParam("OPENAI_API_KEY")
 SUPADATA_API_KEY = SecretParam("SUPADATA_API_KEY")
@@ -32,21 +37,24 @@ def extract_text_from_html(html: str) -> str:
     return text.strip()
 
 def build_user_prompt(text: str) -> str:
-    return f"""
-Analyze this article. Output only:
-5 bullet points showing false info or bias.
-Title each with the quoted text.
-Start each description with "left", "right", or "fake" (for left bias, right bias, or false info).
-At the end, write “Bias: X/10” rating its overall bias or inaccuracy.
-Then write either "Left", "Lean Left", "Center", "Lean Right", or "Right" based on what political alignment/bias the article shows.
-Nothing else.
-Article:
-{text}
-""".strip()
+    prompt = """
+    Analyze this article. Output only:
+    5 bullet points showing false info or bias.
+    Title each with the quoted text.
+    Start each description with "left", "right", or "fake" (for left bias, right bias, or false info).
+    At the end, write “Bias: X/10” rating its overall bias or inaccuracy.
+    Then write either "Left", "Lean Left", "Center", "Lean Right", or "Right" based on what political alignment/bias the article shows.
+    Nothing else.
+    Article:
+    """ + text
+    return prompt.strip()
+
+
 
 @https_fn.on_call(secrets=[OPENAI_API_KEY, SUPADATA_API_KEY])
 def analyze_url(req: https_fn.CallableRequest):
     # Require authentication (matches your earlier security intent)
+    print("Auth object:", req.auth)
     if req.auth is None:
         raise https_fn.HttpsError(
             code=https_fn.FunctionsErrorCode.UNAUTHENTICATED,
@@ -63,7 +71,7 @@ def analyze_url(req: https_fn.CallableRequest):
             message="url is required."
         )
 
-    # 1) Get text: transcript or article content
+    # Get text: transcript or article content
     try:
         if is_video:
             # Supadata transcript endpoint
@@ -76,7 +84,7 @@ def analyze_url(req: https_fn.CallableRequest):
             )
             if r.status_code >= 400:
                 raise Exception(f"Supadata HTTP {r.status_code}: {r.text[:200]}")
-            text = r.text  # keep raw JSON/text like you did before
+            text = r.text  # keep raw JSON/text
         else:
             r = requests.get(url, timeout=30, headers={"User-Agent": "Mozilla/5.0"})
             if r.status_code >= 400 or not r.text:
@@ -91,7 +99,7 @@ def analyze_url(req: https_fn.CallableRequest):
             message=f"Failed to retrieve content: {e}"
         )
 
-    # Capping tokens potentially?
+    # Capping tokens potentially? TODO: Find good number for this
     text = text[:12000]
 
     # OpenAI
