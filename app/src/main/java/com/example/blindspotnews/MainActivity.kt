@@ -16,6 +16,7 @@ import com.example.blindspotnews.ui.ScreenOne
 import com.example.blindspotnews.ui.ScreenOutput
 import com.example.blindspotnews.ui.ScreenTwo
 import com.google.firebase.FirebaseApp
+import com.example.blindspotnews.ui.AnalysisScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -36,7 +37,13 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
-    NavHost(navController = navController, startDestination = "screen_one") {
+    NavHost(navController = navController, startDestination = "analysis_test") {
+
+        composable("analysis_test") {
+            AnalysisScreen()
+        }
+
+        // Original screens we were testing with
         composable("screen_one") { ScreenOne(navController) }
         composable("screen_two") { ScreenTwo(navController) }
         composable("screen_output") { ScreenOutput(navController) }
