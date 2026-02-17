@@ -67,6 +67,7 @@ dependencies {
     implementation(libs.ui)
     implementation(libs.ui.tooling.preview)
     implementation(libs.androidx.material3.android)
+    implementation(libs.lifecycle.viewmodel.ktx)
     //implementation(libs.androidx.navigation.compose.android)
     //implementation(libs.androidx.navigation.compose.jvmstubs)
     debugImplementation(libs.ui.tooling)
