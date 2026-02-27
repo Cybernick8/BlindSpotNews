@@ -8,20 +8,25 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.example.blindspotnews.backend.AnalysisResultStore
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-
+import com.example.blindspotnews.backend.Api
+import com.example.blindspotnews.backend.OutputViewModel
+import com.google.firebase.auth.FirebaseAuth
 
 @Composable
-fun ScreenOutput(navController: NavController) {
-    // Get whatever the last result was (or empty string if null)
-    val initialText = AnalysisResultStore.lastResult ?: ""
+fun ScreenOutput(navController: NavController, viewModel: OutputViewModel = viewModel()) {
+    var outputText by remember { mutableStateOf("Loading...") }
 
-    var outputText by remember { mutableStateOf(TextFieldValue(initialText)) }
+    val url = "https://www.tiktok.com/@thetalkshour/video/7505110474585836831?is_from_webapp=1&sender_device=pc&web_id=7551590510020920887"
+    val isVideo = true
 
-    val scrollState = rememberScrollState()
+    LaunchedEffect(Unit){
+        viewModel.analyze(url, isVideo)
+    }
+    outputText = viewModel.outputText
+
+    Text("UID: ${FirebaseAuth.getInstance().currentUser?.uid}")
 
     Column(
         modifier = Modifier
@@ -39,21 +44,18 @@ fun ScreenOutput(navController: NavController) {
                 .padding(bottom = 24.dp)
         )
 
-        Box(
+        // Output box (currently empty)
+        OutlinedTextField(
+            value = outputText,
+            onValueChange = { outputText = it },
+            placeholder = { Text("Your analysis output will appear here...") },
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .verticalScroll(scrollState)    // Enables scrolling
-        ) {
-            OutlinedTextField(
-                value = outputText,
-                onValueChange = { outputText = it },
-                placeholder = { Text("Your analysis output will appear here...") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = false,
-                maxLines = Int.MAX_VALUE         // Allows longer output
-            )
-        }
+                .padding(bottom = 24.dp),
+            singleLine = false,
+            maxLines = 20
+        )
 
         Spacer(modifier = Modifier.height(16.dp))
 

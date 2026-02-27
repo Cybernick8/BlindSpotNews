@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "431483551588",
+    "project_id": "blindspot-news",
+    "storage_bucket": "blindspot-news.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:431483551588:android:b6b45fe7fd0abf251f0471",
+        "android_client_info": {
+          "package_name": "com.example.blindspotnews"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAp_gmiTPsHm_1p2RrcIF1sLNNJK78YK-Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

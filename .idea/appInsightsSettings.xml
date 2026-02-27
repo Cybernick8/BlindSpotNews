@@ -8,10 +8,10 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="PLACEHOLDER" />
-                  <option name="mobileSdkAppId" value="" />
-                  <option name="projectId" value="" />
-                  <option name="projectNumber" value="" />
+                  <option name="appId" value="com.example.blindspotnews" />
+                  <option name="mobileSdkAppId" value="1:431483551588:android:b6b45fe7fd0abf251f0471" />
+                  <option name="projectId" value="blindspot-news" />
+                  <option name="projectNumber" value="431483551588" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />
