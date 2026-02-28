@@ -29,25 +29,6 @@ fun ScreenTwo(navController: NavController) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Upload Video Button
-        Button(
-            onClick = { /* TODO: handle video upload */ },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp)
-        ) {
-            Text("Upload Video")
-        }
-
-        // Upload Text Button
-        Button(
-            onClick = { /* TODO: handle text upload */ },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp)
-        ) {
-            Text("Upload Text")
-        }
 
         Spacer(modifier = Modifier.height(32.dp))
 
