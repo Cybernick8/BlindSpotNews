@@ -63,5 +63,10 @@ fun ScreenOutput(navController: NavController, viewModel: OutputViewModel = view
         Button(onClick = { navController.navigate("screen_one") }) {
             Text("Back to Home")
         }
+
+        // Back to the Analysis Screen
+        Button(onClick = { navController.navigate("analysis_test") {
+            popUpTo("analysis_test") { inclusive = false } } }
+        ) { Text("Go to Analysis Screen") }
     }
 }

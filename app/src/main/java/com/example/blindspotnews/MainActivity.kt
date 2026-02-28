@@ -37,10 +37,10 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
-    NavHost(navController = navController, startDestination = "analysis_test") {
+    NavHost(navController = navController, startDestination = "screen_one") {
 
         composable("analysis_test") {
-            AnalysisScreen()
+            AnalysisScreen(navController)
         }
 
         // Original screens we were testing with

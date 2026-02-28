@@ -10,9 +10,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.blindspotnews.backend.OutputViewModel
+import androidx.navigation.NavController
 
 @Composable
 fun AnalysisScreen(
+    navController: NavController,
     // The viewModel() helper finds or creates the OutputViewModel for us
     viewModel: OutputViewModel = viewModel()
 ) {
@@ -32,6 +34,24 @@ fun AnalysisScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Top
     ) {
+
+        // --- NAV BUTTONS ---
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            Button(onClick = { navController.navigate("screen_one") }) {
+                Text("Home")
+            }
+            Button(onClick = { navController.navigate("screen_two") }) {
+                Text("Text & Video Upload")
+            }
+            Button(onClick = { navController.navigate("screen_output") }) {
+                Text("Output")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
 
         // --- INPUT SECTION ---
 
