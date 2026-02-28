@@ -37,17 +37,42 @@ def extract_text_from_html(html: str) -> str:
     return text.strip()
 
 def build_user_prompt(text: str) -> str:
-    prompt = """
-    Analyze this article. Output only:
-    5 bullet points showing false info or bias.
-    Title each with the quoted text.
-    Start each description with "left", "right", or "fake" (for left bias, right bias, or false info).
-    At the end, write “Bias: X/10” rating its overall bias or inaccuracy.
-    Then write either "Left", "Lean Left", "Center", "Lean Right", or "Right" based on what political alignment/bias the article shows.
-    Nothing else.
-    Article:
-    """ + text
-    return prompt.strip()
+    return f"""
+You are performing a factual and political bias review of a transcript.
+
+STRICT RULES:
+- Only report issues if there is clear evidence of:
+  (1) verifiably false factual claims, or
+  (2) meaningful political bias (loaded framing or major contextual omission).
+- Do NOT speculate.
+- Do NOT force findings.
+- If the transcript contains no political content or no clear factual errors, output exactly:
+
+NO_ISSUES_FOUND
+Bias: 0/10
+Center
+
+and nothing else.
+
+FORMAT REQUIREMENTS:
+
+For each issue found, you MUST wrap it exactly between these markers:
+
+/~BLINDSPOT_ISSUE_START~/
+ID: ISSUE_<incrementing number starting at 1>
+TYPE: left | right | fake
+QUOTE: "<exact quoted text from transcript>"
+EXPLANATION: <brief explanation>
+/~BLINDSPOT_ISSUE_END~/
+
+After all issues (if any), output:
+
+Bias: X/10
+Political Alignment: Left | Lean Left | Center | Lean Right | Right
+
+Transcript:
+{text}
+""".strip()
 
 
 
