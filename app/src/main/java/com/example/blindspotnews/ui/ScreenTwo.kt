@@ -51,14 +51,18 @@ fun ScreenTwo(navController: NavController) {
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        Button(
-            onClick = { navController.navigate("screen_output") },
+        Button(onClick = { navController.navigate("screen_output") },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 8.dp)
         ) {
             Text("Go to Output Screen")
         }
+
+        // Back to the Analysis Screen
+        Button(onClick = { navController.navigate("analysis_test") {
+            popUpTo("analysis_test") { inclusive = false } } }
+        ) { Text("Go to Analysis Screen") }
 
         Spacer(modifier = Modifier.height(32.dp))
 
