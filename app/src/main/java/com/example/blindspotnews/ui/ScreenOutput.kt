@@ -18,7 +18,7 @@ import com.google.firebase.auth.FirebaseAuth
 fun ScreenOutput(navController: NavController, viewModel: OutputViewModel = viewModel()) {
     var outputText by remember { mutableStateOf("Loading...") }
 
-    val url = "https://www.tiktok.com/@thetalkshour/video/7505110474585836831?is_from_webapp=1&sender_device=pc&web_id=7551590510020920887"
+    val url = "https://www.tiktok.com/@mission_driven_mom/video/7608981388422958344?q=flat%20earth%20proof&t=1772587167836"
     val isVideo = true
 
     LaunchedEffect(Unit){

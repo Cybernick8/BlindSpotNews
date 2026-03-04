@@ -9,6 +9,7 @@ import requests
 from bs4 import BeautifulSoup
 import firebase_admin
 from firebase_admin import initialize_app
+import json
 
 initialize_app()
 
@@ -42,33 +43,45 @@ You are performing a factual and political bias review of a transcript.
 
 STRICT RULES:
 - Only report issues if there is clear evidence of:
-  (1) verifiably false factual claims, or
-  (2) meaningful political bias (loaded framing or major contextual omission).
+  (1) verifiably false factual claims
+  (2) meaningful political bias
 - Do NOT speculate.
 - Do NOT force findings.
-- If the transcript contains no political content or no clear factual errors, output exactly:
+- Only identify issues that meaningfully affect the transcript's message.
 
-NO_ISSUES_FOUND
-Bias: 0/10
-Center
+IMPORTANT:
+When reporting issues, return CHARACTER POSITIONS within the transcript.
 
-and nothing else.
+The "start" value must be the index of the first character of the problematic text.
+The "end" value must be the index immediately after the final character.
 
-FORMAT REQUIREMENTS:
+Indices are based on the EXACT transcript provided below.
 
-For each issue found, you MUST wrap it exactly between these markers:
+Return VALID JSON ONLY.
 
-/~BLINDSPOT_ISSUE_START~/
-ID: ISSUE_<incrementing number starting at 1>
-TYPE: left | right | fake
-QUOTE: "<exact quoted text from transcript>"
-EXPLANATION: <brief explanation>
-/~BLINDSPOT_ISSUE_END~/
+JSON FORMAT:
 
-After all issues (if any), output:
+{{
+  "issues": [
+    {{
+      "id": "ISSUE_1",
+      "type": "left | right | fake",
+      "start": number,
+      "end": number,
+      "explanation": "brief explanation"
+    }}
+  ],
+  "bias_score": number from 0-10,
+  "alignment": "Left | Lean Left | Center | Lean Right | Right"
+}}
 
-Bias: X/10
-Political Alignment: Left | Lean Left | Center | Lean Right | Right
+If there are no issues:
+
+{{
+  "issues": [],
+  "bias_score": 0,
+  "alignment": "Center"
+}}
 
 Transcript:
 {text}
@@ -108,8 +121,29 @@ def analyze_url(req: https_fn.CallableRequest):
                 timeout=60,
             )
             if r.status_code >= 400:
-                raise Exception(f"Supadata HTTP {r.status_code}: {r.text[:200]}")
-            text = r.text  # keep raw JSON/text
+                raise Exception(f"Supadata HTTP {r.status_code}: {r.text[:20]}")
+
+            transcript_json = r.json()
+            print("SUPADATA RESPONSE:", transcript_json)
+
+            segments = transcript_json.get("content", [])
+
+            text = ""
+
+            for seg in segments:
+                piece = seg.get("text", "")
+                piece = piece.strip()
+                text = text + " " + piece
+
+            text = text.strip()
+
+#             segments = transcript_json.get("segments")
+#
+#            # handling different return types? Sometimes segments, sometimes text
+#             if not segments:
+#                 segments = transcript_json.get("text")
+
+
         else:
             r = requests.get(url, timeout=30, headers={"User-Agent": "Mozilla/5.0"})
             if r.status_code >= 400 or not r.text:
@@ -134,13 +168,29 @@ def analyze_url(req: https_fn.CallableRequest):
 
         resp = client.responses.create(
             model="gpt-4.1-mini",
+            temperature = 0,
             input=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_prompt},
             ],
         )
 
-        return resp.output_text
+        model_output = resp.output_text.strip()
+
+        try:
+            analysis = json.loads(model_output)
+        except Exception:
+            raise https_fn.HttpsError(
+                code=https_fn.FunctionsErrorCode.INTERNAL,
+                message=f"Model returned invalid JSON: {model_output[:50]}"
+            )
+
+        return {
+            "text": text,
+            "issues": analysis.get("issues", []),
+            "bias_score": analysis.get("bias_score", 0),
+            "alignment": analysis.get("alignment", "Center")
+        }
     except Exception as e:
         raise https_fn.HttpsError(
             code=https_fn.FunctionsErrorCode.INTERNAL,
