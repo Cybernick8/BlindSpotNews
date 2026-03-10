@@ -24,13 +24,26 @@ class Api {
                 .call(data)
                 .await()
 
-            val raw = result.getData()
+            println(result.getData())
 
-            if (raw !is String) {
-                return "Unexpected response format"
-            }
+            val raw = result.getData() as? Map<*, *>
+                ?: return "Unexpected response format"
 
-            raw
+            val textPreview = raw["text"]?.toString()?.take(50) ?: "null"
+            val issuesPreview = raw["issues"]?.toString()?.take(50) ?: "null"
+            val biasPreview = raw["bias_score"]?.toString()?.take(50) ?: "null"
+            val alignPreview = raw["alignment"]?.toString()?.take(50) ?: "null"
+
+            val debugOutput = """
+                TEXT: $textPreview
+                ISSUES: $issuesPreview
+                BIAS_SCORE: $biasPreview
+                ALIGNMENT: $alignPreview
+                """.trimIndent()
+
+            println(debugOutput)
+
+            debugOutput
         } catch (e: Exception) {
             "Error: ${e.message}"
         }
