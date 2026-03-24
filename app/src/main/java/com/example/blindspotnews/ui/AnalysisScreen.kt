@@ -12,11 +12,15 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.blindspotnews.backend.OutputViewModel
 import androidx.navigation.NavController
 
+
+
 @Composable
 fun AnalysisScreen(
     navController: NavController,
     // The viewModel() helper finds or creates the OutputViewModel for us
-    viewModel: OutputViewModel = viewModel()
+    viewModel: OutputViewModel = viewModel(),
+
+    analysisViewModel: AnalysisViewModel = viewModel()
 ) {
     // 1. Local UI State: Holds the text the user is currently typing
     var urlInput by remember { mutableStateOf("") }
@@ -109,5 +113,22 @@ fun AnalysisScreen(
             text = viewModel.outputText,
             style = MaterialTheme.typography.bodyMedium
         )
+        /// --- FIRESTORE SAVE BUTTON ---
+        // Button should only show if there is actually output to save
+        if (viewModel.outputText.isNotBlank() && viewModel.outputText != "Loading...") {
+            Button(
+                onClick = {
+                    // This now perfectly matches the function and parameters in your ViewModel
+                    analysisViewModel.saveArticleData(
+                        headline = "Pending Headline Extraction",
+                        sourceUrl = urlInput,
+                        biasRating = "Pending",
+                        factuality = "Pending"
+                    )
+                }
+            ) {
+                Text("Save to Database")
+            }
+        }
     }
 }
