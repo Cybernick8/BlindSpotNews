@@ -24,6 +24,8 @@ executor = ThreadPoolExecutor()
 
 OPENAI_API_KEY = SecretParam("OPENAI_API_KEY")
 SUPADATA_API_KEY = SecretParam("SUPADATA_API_KEY")
+NEWS_API_KEY = SecretParam("NEWS_API_KEY")
+
 SYSTEM_PROMPT = "You are a fact and bias checking assistant for articles and transcripts."
 
 
@@ -37,7 +39,7 @@ SYSTEM_PROMPT = "You are a fact and bias checking assistant for articles and tra
 #   grab html, filter out unnecessary tags, and upload to openai
 @https_fn.on_call(secrets=[OPENAI_API_KEY, SUPADATA_API_KEY])
 def analyze_url(req: https_fn.CallableRequest):
-
+    # Require authentication (matches your earlier security intent)
     print("Auth object:", req.auth)
     if req.auth is None:
         raise https_fn.HttpsError(
