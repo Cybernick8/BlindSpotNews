@@ -16,15 +16,15 @@ import com.google.firebase.auth.FirebaseAuth
 
 @Composable
 fun ScreenOutput(navController: NavController, viewModel: OutputViewModel = viewModel()) {
-    var outputText by remember { mutableStateOf("Loading...") }
-
-    val url = "https://www.tiktok.com/@mission_driven_mom/video/7608981388422958344?q=flat%20earth%20proof&t=1772587167836"
-    val isVideo = true
-
-    LaunchedEffect(Unit){
-        viewModel.analyze(url, isVideo)
-    }
-    outputText = viewModel.outputText
+//    var outputText by remember { mutableStateOf("Loading...") }
+//
+//    val url = "https://www.tiktok.com/@mission_driven_mom/video/7608981388422958344?q=flat%20earth%20proof&t=1772587167836"
+//    val isVideo = true
+//          current vid: https://www.tiktok.com/@themakeshiftproject/video/7550754465595297055?q=moon%20landing%20fake&t=1774498604171
+//    LaunchedEffect(Unit){
+//        viewModel.analyze(url, isVideo)
+//    }
+    val outputText = viewModel.outputText
 
     Text("UID: ${FirebaseAuth.getInstance().currentUser?.uid}")
 
@@ -47,8 +47,7 @@ fun ScreenOutput(navController: NavController, viewModel: OutputViewModel = view
         // Output box (currently empty)
         OutlinedTextField(
             value = outputText,
-            onValueChange = { outputText = it },
-            placeholder = { Text("Your analysis output will appear here...") },
+            onValueChange = {},
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)

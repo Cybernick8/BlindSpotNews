@@ -31,12 +31,14 @@ class Api {
 
             val textPreview = raw["text"]?.toString()?.take(50) ?: "null"
             val issuesPreview = raw["issues"]?.toString()?.take(50) ?: "null"
+            val imgIssuesPreview = raw["image_issues"]?.toString()?.take(50) ?: "null"
             val biasPreview = raw["bias_score"]?.toString()?.take(50) ?: "null"
             val alignPreview = raw["alignment"]?.toString()?.take(50) ?: "null"
 
             val debugOutput = """
                 TEXT: $textPreview
                 ISSUES: $issuesPreview
+                IMAGE ISSUES: $imgIssuesPreview
                 BIAS_SCORE: $biasPreview
                 ALIGNMENT: $alignPreview
                 """.trimIndent()
