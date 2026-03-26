@@ -62,6 +62,9 @@ fun ScreenOne(navController: NavController) {
                     Button(onClick = { navController.navigate("screen_output") }) {
                         Text("Output")
                     }
+                    Button(onClick = { navController.navigate("profile") }) {
+                        Text("Profile")
+                    }
                 }
 
             }

@@ -16,6 +16,7 @@ initialize_app()
 
 OPENAI_API_KEY = SecretParam("OPENAI_API_KEY")
 SUPADATA_API_KEY = SecretParam("SUPADATA_API_KEY")
+NEWS_API_KEY = SecretParam("NEWS_API_KEY")
 
 SYSTEM_PROMPT = "You are a fact and bias checking assistant for articles and transcripts."
 
