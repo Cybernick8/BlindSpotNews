@@ -4,7 +4,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -21,9 +20,11 @@ import com.example.blindspotnews.ui.AnalysisScreen
 import com.example.blindspotnews.ui.LoginScreen
 
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         FirebaseApp.initializeApp(this)
+
         setContent {
             // Force a light background for visibility with black text
             Surface(
@@ -56,4 +57,3 @@ fun AppNavigation() {
         composable("profile") { ProfileScreen(navController) }
     }
 }
-
