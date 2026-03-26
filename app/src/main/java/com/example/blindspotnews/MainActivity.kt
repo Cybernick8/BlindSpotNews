@@ -19,9 +19,11 @@ import com.google.firebase.FirebaseApp
 import com.example.blindspotnews.ui.AnalysisScreen
 
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         FirebaseApp.initializeApp(this)
+
         setContent {
             // Force a light background for visibility with black text
             Surface(
@@ -49,4 +51,3 @@ fun AppNavigation() {
         composable("screen_output") { ScreenOutput(navController) }
     }
 }
-
