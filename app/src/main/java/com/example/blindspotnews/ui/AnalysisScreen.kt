@@ -28,6 +28,8 @@ fun AnalysisScreen(
     // 2. Local UI State: Holds the state of the checkbox
     var isVideoInput by remember { mutableStateOf(false) }
 
+    val outputText = viewModel.outputText
+
     // 3. Simple layout container
     val scrollState = rememberScrollState()
     Column(
@@ -109,10 +111,14 @@ fun AnalysisScreen(
 
         // 5. Observing the ViewModel
         // outputText is a 'mutableStateOf', so this Text updates automatically
-        Text(
-            text = viewModel.outputText,
-            style = MaterialTheme.typography.bodyMedium
-        )
+        when (outputText){
+            "Loading" -> CircularProgressIndicator()
+            else -> Text(
+                text = outputText,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+
         /// --- FIRESTORE SAVE BUTTON ---
         // Button should only show if there is actually output to save
         if (viewModel.outputText.isNotBlank() && viewModel.outputText != "Loading...") {

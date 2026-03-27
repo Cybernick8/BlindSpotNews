@@ -17,6 +17,8 @@ import base64
 from concurrent.futures import ThreadPoolExecutor
 import time
 import uuid
+import yt_dlp
+import cv2
 
 initialize_app()
 
@@ -68,8 +70,7 @@ def analyze_url(req: https_fn.CallableRequest):
                 loop = asyncio.get_event_loop()
 
                 video_task = None
-                if url.endswith((".mp4", ".mov", ".avi", ".webm")):
-                    video_task = loop.run_in_executor(executor, download_video, url)
+                # video_task = loop.run_in_executor(executor, download_video, url)
 
                 transcript_task = asyncio.create_task(fetch_transcript_async(url))
 
@@ -91,8 +92,13 @@ def analyze_url(req: https_fn.CallableRequest):
 
                 return transcript, frames
 
-            transcript, encoded_frames = asyncio.run(run_video_pipeline())
-            text = transcript
+            try:
+                transcript, encoded_frames = asyncio.run(run_video_pipeline())
+                text = transcript
+            except Exception as e:
+                print("[VIDEO PIPELINE ERROR]:", repr(e))
+                encoded_frames = []
+                text = "There seems to be an issue with analyzing this link. Please try again or use a different link."
 
         else:
             r = requests.get(url, timeout=30, headers={"User-Agent": "Mozilla/5.0"})
@@ -102,7 +108,8 @@ def analyze_url(req: https_fn.CallableRequest):
             text = extract_text_from_html(r.text)
             encoded_frames = []
 
-        if not text or len(text) < 50:
+        print("Encoded frames:", len(encoded_frames))
+        if not text:
             raise Exception("No usable text extracted.")
 
     except Exception as e:
@@ -124,6 +131,8 @@ def analyze_url(req: https_fn.CallableRequest):
 
         # frames currently empty (stubbed)
         for img in encoded_frames:
+            if not img:
+                continue
             content.append({
                 "type": "input_image",
                 "image_url": f"data:image/jpeg;base64,{img}"
@@ -154,11 +163,23 @@ def analyze_url(req: https_fn.CallableRequest):
         print(f"[PERFORMANCE] openai call: {end_openai - start_openai:.2f} sec")
         print(f"[PERFORMANCE] total call: {end_call - start_call:.2f} sec")
 
+        print(f"\n\n[OUTPUT] text: {text}")
+        issues = analysis.get("issues", [])
+        image_issues = analysis.get("image_issues", [])
+        bias_score = analysis.get("bias_score", 0)
+        alignment = analysis.get("alignment", "Center")
+        print(f"\n\n[OUTPUT] issues: {issues}")
+        print(f"\n\n[OUTPUT] vid issues: {image_issues}")
+        print(f"\n\n[OUTPUT] bias score: {bias_score}")
+        print(f"\n\n[OUTPUT] alignment: {alignment}")
+
+
         return {
             "text": text,
-            "issues": analysis.get("issues", []),
-            "bias_score": analysis.get("bias_score", 0),
-            "alignment": analysis.get("alignment", "Center")
+            "issues": issues,
+            "image_issues": image_issues,
+            "bias_score": bias_score,
+            "alignment": alignment
         }
 
     except https_fn.HttpsError as e:
@@ -184,36 +205,51 @@ STRICT RULES:
 - Do NOT force findings.
 - Only identify issues that directly relate to the transcript's message.
 
-IMPORTANT:
-When reporting issues, return CHARACTER POSITIONS within the transcript.
+TEXT ANALYSIS:
+- When reporting issues, return CHARACTER POSITIONS within the transcript.
+- The "start" value must be the index of the first character of the problematic text.
+- The "end" value must be the index immediately after the final character.
+- Indices are based on the EXACT transcript provided below.
 
-The "start" value must be the index of the first character of the problematic text.
-The "end" value must be the index immediately after the final character.
 
-Indices are based on the EXACT transcript provided below.
+IMAGE ANALYSIS:
+If an issue is based on an image (not directly tied to a specific transcript span):
+- Add it to "image_issues"
+- Include the frame_index (0-based index from provided images)
+- Do NOT assign start/end indices for image issues
 
 Return VALID JSON ONLY.
 
 JSON FORMAT:
 
 {{
+  "text": "the full text of the article/transcript",
   "issues": [
     {{
       "id": "ISSUE_1",
       "type": "left | right | fake",
       "start": number,
       "end": number,
-      "explanation": "brief explanation"
+      "explanation": "brief explanation of the issue tied to the transcript text"
     }}
   ],
-  "bias_score": number from 0-10,
+  "image_issues": [
+    {{
+      "id": "IMG_1",
+      "frame_index": number,
+      "type": "left | right | fake | misleading",
+      "explanation": "brief explanation of the issue found in the image"
+    }}
+  ],
+  "bias_score": number 1 through 10,
   "alignment": "Left | Lean Left | Center | Lean Right | Right"
 }}
 
-If there are no issues:
+If no issues:
 
 {{
   "issues": [],
+  "image_issues" : [],
   "bias_score": 0,
   "alignment": "Center"
 }}
@@ -256,6 +292,13 @@ async def fetch_transcript_async(url):
     loop = asyncio.get_event_loop()
     r = await loop.run_in_executor(executor, blocking_request)
 
+    # Checking why supadata is rate limiting
+    if r.status_code == 429:
+        retry_after = r.headers.get("Retry-After")
+        print("[SUPADATA RATE LIMIT] Retry-After:", retry_after)
+        raise Exception(f"Supadata HTTP 429 (Retry-After={retry_after})")
+
+
     if r.status_code >= 400:
         raise Exception(f"Supadata HTTP {r.status_code}")
 
@@ -272,8 +315,15 @@ async def fetch_transcript_async(url):
 # ideally we use relevant frames instead
 # of just the first 5
 def process_frames(video_path):
-    # dumbed down to deal with cv2
-    return []
+    cap = cv2.VideoCapture(video_path)
+
+    ret, frame = cap.read()
+    cap.release()
+
+    if not ret:
+        return []
+
+    return [encode_frame(frame)]
 
 
 # video -> usable frames (stub)
@@ -284,21 +334,46 @@ def extract_frames(video_path):
 # Taking our video from url, downloading the video,
 # and saving it
 def download_video(url):
-    response = requests.get(url, stream=True, timeout=30)
+    output_template = f"/tmp/{uuid.uuid4()}.%(ext)s"
 
-    file_path = f"/tmp/{uuid.uuid4()}.mp4"
+    ydl_opts = {
+        "format": "worst[ext=mp4]/mp4",
+        "outtmpl": output_template,
+        "quiet": True,
+        "noplaylist": True,
+        "nocheckcertificate": True,
+        "ignoreerrors": False,
+        "cachedir": False,
+        "no_warnings": True,
+    }
+    try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                result = ydl.extract_info(url, download=True)
 
-    with open(file_path, "wb") as f:
-        for chunk in response.iter_content(chunk_size=1024):
-            if chunk:
-                f.write(chunk)
+                print("Result type:", type(result))
 
-    return file_path
+                file_path = ydl.prepare_filename(result)
+
+                if not isinstance(file_path, str):
+                    raise Exception(f"Invalid file path type: {type(file_path)}")
+
+                print("Downloaded file path:", file_path)
+
+                return file_path
+
+    except Exception as e:
+        print("YT-DLP ERROR:", repr(e))
+        raise
 
 
 # encoding to meet openai api's img expectations
 def encode_frame(frame):
-    return ""
+    success, buffer = cv2.imencode(".jpg", frame)
+
+    if not success:
+        return None
+
+    return base64.b64encode(buffer.tobytes()).decode("utf-8")
 
 
 # async to reduce execution time

@@ -6,3 +6,5 @@ lxml>=4.9.0
 
 opencv-python-headless>=4.9.0
 Pillow>=10.0.0
+yt-dlp>=2024.3.10
+opencv-python-headless>=4.9.0

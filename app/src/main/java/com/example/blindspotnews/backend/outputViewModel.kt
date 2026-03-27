@@ -10,10 +10,11 @@ import kotlinx.coroutines.launch
 
 class OutputViewModel : ViewModel() {
 
-    var outputText by mutableStateOf("Loading...")
+    var outputText by mutableStateOf("Processing...")
         private set
 
     fun analyze(url: String, isVideo: Boolean){
+        outputText = "Loading..."
         authenticateAndFetch(url, isVideo)
     }
 
