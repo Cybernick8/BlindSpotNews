@@ -19,6 +19,13 @@ import time
 import uuid
 import yt_dlp
 import cv2
+from transformers import CLIPProcessor, CLIPModel
+from PIL import Image
+import sys
+import io
+
+clip_model = None
+clip_processor = None
 
 initialize_app()
 
@@ -39,7 +46,10 @@ SYSTEM_PROMPT = "You are a fact and bias checking assistant for articles and tra
 #   for response
 # for article:
 #   grab html, filter out unnecessary tags, and upload to openai
-@https_fn.on_call(secrets=[OPENAI_API_KEY, SUPADATA_API_KEY])
+@https_fn.on_call(
+    secrets=[OPENAI_API_KEY, SUPADATA_API_KEY],
+    memory=4096
+)
 def analyze_url(req: https_fn.CallableRequest):
     # Require authentication (matches your earlier security intent)
     print("Auth object:", req.auth)
@@ -70,7 +80,7 @@ def analyze_url(req: https_fn.CallableRequest):
                 loop = asyncio.get_event_loop()
 
                 video_task = None
-                # video_task = loop.run_in_executor(executor, download_video, url)
+                video_task = loop.run_in_executor(executor, download_video, url)
 
                 transcript_task = asyncio.create_task(fetch_transcript_async(url))
 
@@ -78,6 +88,9 @@ def analyze_url(req: https_fn.CallableRequest):
                     video_path = await video_task
                 else:
                     video_path = None
+
+                if video_path and not isinstance(video_path, str):
+                    raise Exception(f"Invalid video_path type: {type(video_path)}")
 
                 if video_path:
                     frames_task = asyncio.create_task(process_frames_async(video_path))
@@ -315,15 +328,45 @@ async def fetch_transcript_async(url):
 # ideally we use relevant frames instead
 # of just the first 5
 def process_frames(video_path):
+    return []  # TEMP disable
     cap = cv2.VideoCapture(video_path)
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-    ret, frame = cap.read()
-    cap.release()
-
-    if not ret:
+    if total_frames <= 0:
+        cap.release()
         return []
 
-    return [encode_frame(frame)]
+    # sample ~15 candidate frames from middle
+    start = int(total_frames * 0.2)
+    end = int(total_frames * 0.8)
+
+    sample_count = 15
+    indices = [
+        int(start + (end - start) * i / (sample_count - 1))
+        for i in range(sample_count)
+    ]
+
+    scored_frames = []
+
+    for idx in indices:
+        cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
+        ret, frame = cap.read()
+
+        if not ret:
+            continue
+
+        score = score_frame(frame)
+        scored_frames.append((score, frame))
+
+    cap.release()
+
+    # sorting by relevance
+    scored_frames.sort(key=lambda x: x[0], reverse=True)
+
+    # taking top 3, can adjust
+    top_frames = [frame for _, frame in scored_frames[:3]]
+
+    return [encode_frame(f) for f in top_frames if f is not None]
 
 
 # video -> usable frames (stub)
@@ -345,23 +388,35 @@ def download_video(url):
         "ignoreerrors": False,
         "cachedir": False,
         "no_warnings": True,
+        "restrictfilenames": True,
+        "encoding": "utf-8",
     }
+
     try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                result = ydl.extract_info(url, download=True)
+        original_stdout = sys.stdout
+        original_stderr = sys.stderr
+        sys.stdout = io.StringIO()
+        sys.stderr = io.StringIO()
 
-                print("Result type:", type(result))
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            result = ydl.extract_info(url, download=True)
 
-                file_path = ydl.prepare_filename(result)
+        sys.stdout = original_stdout
+        sys.stderr = original_stderr
 
-                if not isinstance(file_path, str):
-                    raise Exception(f"Invalid file path type: {type(file_path)}")
+        if not result:
+            raise Exception("yt_dlp returned no result")
 
-                print("Downloaded file path:", file_path)
+        file_path = ydl.prepare_filename(result)
 
-                return file_path
+        if isinstance(file_path, bytes):
+            file_path = file_path.decode("utf-8", errors="ignore")
+
+        return file_path
 
     except Exception as e:
+        sys.stdout = original_stdout
+        sys.stderr = original_stderr
         print("YT-DLP ERROR:", repr(e))
         raise
 
@@ -381,4 +436,39 @@ async def process_frames_async(video_path):
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(executor, process_frames, video_path)
 
+
+def score_frame(frame):
+    clip_model, clip_processor = get_clip()
+    image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+
+    prompts = [
+        "news broadcast",
+        "person speaking",
+        "text on screen",
+        "chart or graph",
+        "interview",
+        "headline screenshot"
+    ]
+
+    inputs = clip_processor(
+        text=prompts,
+        images=image,
+        return_tensors="pt",
+        padding=True
+    )
+
+    outputs = clip_model(**inputs)
+    logits_per_image = outputs.logits_per_image
+    scores = logits_per_image.softmax(dim=1)
+
+    return scores.max().item()  # best match score
+
+
+# only loading clip when actually will be used
+def get_clip():
+    global clip_model, clip_processor
+    if clip_model is None:
+        clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+        clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+    return clip_model, clip_processor
 # firebase deploy --only functions
