@@ -24,7 +24,7 @@ fun ScreenOutput(navController: NavController, viewModel: OutputViewModel = view
 //    LaunchedEffect(Unit){
 //        viewModel.analyze(url, isVideo)
 //    }
-    val outputText = viewModel.outputText
+    // https://www.tiktok.com/@alienssighting/video/7269865367537962286?q=Agartha&t=1775452516272
 
     Text("UID: ${FirebaseAuth.getInstance().currentUser?.uid}")
 
@@ -46,7 +46,7 @@ fun ScreenOutput(navController: NavController, viewModel: OutputViewModel = view
 
         // Output box (currently empty)
         OutlinedTextField(
-            value = outputText,
+            value = "hi",
             onValueChange = {},
             modifier = Modifier
                 .fillMaxWidth()
