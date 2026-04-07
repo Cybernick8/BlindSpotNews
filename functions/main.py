@@ -47,7 +47,7 @@ SYSTEM_PROMPT = "You are a fact and bias checking assistant for articles and tra
 # for article:
 #   grab html, filter out unnecessary tags, and upload to openai
 @https_fn.on_call(
-    secrets=[OPENAI_API_KEY, SUPADATA_API_KEY],
+    secrets=[OPENAI_API_KEY, SUPADATA_API_KEY, NEWS_API_KEY],
     memory=4096
 )
 def analyze_url(req: https_fn.CallableRequest):
@@ -472,3 +472,110 @@ def get_clip():
         clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
     return clip_model, clip_processor
 # firebase deploy --only functions
+
+def get_home_news(req: https_fn.CallableRequest):
+    if req.auth is None:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.UNAUTHENTICATED,
+            message="User must be signed in."
+        )
+
+    data = req.data or {}
+    topic = str(data.get("topic", "All")).strip()
+    search = str(data.get("search", "")).strip()
+
+    headers = {
+        "X-Api-Key": NEWS_API_KEY.value
+    }
+
+    try:
+        if search:
+            response = requests.get(
+                "https://newsapi.org/v2/everything",
+                headers=headers,
+                params={
+                    "q": search,
+                    "language": "en",
+                    "sortBy": "publishedAt",
+                    "pageSize": 10
+                },
+                timeout=20
+            )
+        elif topic == "Business":
+            response = requests.get(
+                "https://newsapi.org/v2/top-headlines",
+                headers=headers,
+                params={
+                    "country": "us",
+                    "category": "business",
+                    "pageSize": 10
+                },
+                timeout=20
+            )
+        elif topic == "Tech":
+            response = requests.get(
+                "https://newsapi.org/v2/top-headlines",
+                headers=headers,
+                params={
+                    "country": "us",
+                    "category": "technology",
+                    "pageSize": 10
+                },
+                timeout=20
+            )
+        elif topic == "International":
+            response = requests.get(
+                "https://newsapi.org/v2/everything",
+                headers=headers,
+                params={
+                    "q": "international OR world news",
+                    "language": "en",
+                    "sortBy": "publishedAt",
+                    "pageSize": 10
+                },
+                timeout=20
+            )
+        elif topic == "Politics":
+            response = requests.get(
+                "https://newsapi.org/v2/everything",
+                headers=headers,
+                params={
+                    "q": "politics OR government OR election",
+                    "language": "en",
+                    "sortBy": "publishedAt",
+                    "pageSize": 10
+                },
+                timeout=20
+            )
+        else:
+            response = requests.get(
+                "https://newsapi.org/v2/top-headlines",
+                headers=headers,
+                params={
+                    "country": "us",
+                    "pageSize": 10
+                },
+                timeout=20
+            )
+
+        payload = response.json()
+
+        if response.status_code >= 400 or payload.get("status") != "ok":
+            raise Exception(payload.get("message", f"HTTP {response.status_code}"))
+
+        articles = []
+        for article in payload.get("articles", []):
+            articles.append({
+                "title": article.get("title") or "Untitled",
+                "imageUrl": article.get("urlToImage") or "",
+                "url": article.get("url") or "",
+                "source": (article.get("source") or {}).get("name") or "Unknown"
+            })
+
+        return {"articles": articles}
+
+    except Exception as e:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.INTERNAL,
+            message=f"Failed to fetch home news: {str(e)}"
+        )
