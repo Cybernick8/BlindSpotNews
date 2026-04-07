@@ -28,7 +28,9 @@ fun AnalysisScreen(
     // 2. Local UI State: Holds the state of the checkbox
     var isVideoInput by remember { mutableStateOf(false) }
 
-    val outputText = viewModel.outputText
+    val result = viewModel.analysisResult
+
+    val isLoading = viewModel.isLoading
 
     // 3. Simple layout container
     val scrollState = rememberScrollState()
@@ -109,31 +111,36 @@ fun AnalysisScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
+        when {
+            isLoading -> CircularProgressIndicator()
+
+            result != null -> Column {
+                Text("Text: ${result.text.take(200)}")
+                Text("Bias: ${result.biasScore}")
+            }
+
+            else -> Text("No analysis yet")
+        }
+
         // 5. Observing the ViewModel
         // outputText is a 'mutableStateOf', so this Text updates automatically
-        when (outputText){
-            "Loading" -> CircularProgressIndicator()
-            else -> Text(
-                text = outputText,
-                style = MaterialTheme.typography.bodyMedium
-            )
-        }
+
+
 
         /// --- FIRESTORE SAVE BUTTON ---
         // Button should only show if there is actually output to save
-        if (viewModel.outputText.isNotBlank() && viewModel.outputText != "Loading...") {
+        if (result != null) {
             Button(
                 onClick = {
-                    // This now perfectly matches the function and parameters in your ViewModel
                     analysisViewModel.saveArticleData(
-                        headline = "Pending Headline Extraction",
+                        headline = result.text.take(100),
                         sourceUrl = urlInput,
-                        biasRating = "Pending",
-                        factuality = "Pending"
+                        biasRating = result.biasScore,
+                        factuality = result.alignment
                     )
                 }
             ) {
-                Text("Save to Database")
+                Text("Save Analysis")
             }
         }
     }

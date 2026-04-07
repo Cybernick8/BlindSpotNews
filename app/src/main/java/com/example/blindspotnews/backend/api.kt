@@ -11,14 +11,14 @@ class Api {
     suspend fun analyzeVideoOrArticle(
         url: String,
         isVideo: Boolean
-    ): String {
+    ): AnalysisResult {
 
         val data = hashMapOf(
             "url" to url,
             "isVideo" to isVideo
         )
 
-        return try {
+        try {
             val result = functions
                 .getHttpsCallable("analyze_url")
                 .call(data)
@@ -27,27 +27,33 @@ class Api {
             println(result.getData())
 
             val raw = result.getData() as? Map<*, *>
-                ?: return "Unexpected response format"
+                ?: throw Exception("Unexpected response format")
 
-            val textPreview = raw["text"]?.toString()?.take(50) ?: "null"
-            val issuesPreview = raw["issues"]?.toString()?.take(50) ?: "null"
-            val imgIssuesPreview = raw["image_issues"]?.toString()?.take(50) ?: "null"
-            val biasPreview = raw["bias_score"]?.toString()?.take(50) ?: "null"
-            val alignPreview = raw["alignment"]?.toString()?.take(50) ?: "null"
+            return AnalysisResult(
+                text = raw["text"]?.toString() ?: "",
+                issues = raw["issues"]?.toString() ?: "",
+                imageIssues = raw["image_issues"]?.toString() ?: "",
+                biasScore = raw["bias_score"]?.toString() ?: "",
+                alignment = raw["alignment"]?.toString() ?: ""
+            )
 
-            val debugOutput = """
-                TEXT: $textPreview
-                ISSUES: $issuesPreview
-                IMAGE ISSUES: $imgIssuesPreview
-                BIAS_SCORE: $biasPreview
-                ALIGNMENT: $alignPreview
-                """.trimIndent()
-
-            println(debugOutput)
-
-            debugOutput
         } catch (e: Exception) {
-            "Error: ${e.message}"
+            return AnalysisResult(
+                text = "",
+                issues = "",
+                imageIssues = "",
+                biasScore = "",
+                alignment = ""
+            )
         }
     }
 }
+
+
+data class AnalysisResult(
+    val text: String,
+    val issues: String,
+    val imageIssues: String,
+    val biasScore: String,
+    val alignment: String
+)

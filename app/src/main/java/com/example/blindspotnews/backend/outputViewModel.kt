@@ -10,11 +10,15 @@ import kotlinx.coroutines.launch
 
 class OutputViewModel : ViewModel() {
 
-    var outputText by mutableStateOf("Processing...")
+    var analysisResult by mutableStateOf<AnalysisResult?>(null)
+        private set
+
+    var isLoading by mutableStateOf(false)
         private set
 
     fun analyze(url: String, isVideo: Boolean){
-        outputText = "Loading..."
+        isLoading = true
+        analysisResult = null
         authenticateAndFetch(url, isVideo)
     }
 
@@ -29,8 +33,6 @@ class OutputViewModel : ViewModel() {
                             ?.addOnSuccessListener {
                                 fetchData(url, isVideo)
                             }
-                    } else {
-                        outputText = "Auth failed: ${task.exception?.message}"
                     }
                 }
         } else {
@@ -41,9 +43,15 @@ class OutputViewModel : ViewModel() {
     private fun fetchData(url: String, isVideo: Boolean) {
         viewModelScope.launch {
             try {
-                outputText = Api().analyzeVideoOrArticle(url, isVideo)
+                val result = Api().analyzeVideoOrArticle(url, isVideo)
+
+                analysisResult = result
+                AnalysisResultStore.lastResult = result
+
             } catch (e: Exception) {
-                outputText = "Error: ${e.message}"
+
+            } finally {
+                isLoading = false
             }
         }
     }
