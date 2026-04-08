@@ -34,8 +34,26 @@ executor = ThreadPoolExecutor()
 OPENAI_API_KEY = SecretParam("OPENAI_API_KEY")
 SUPADATA_API_KEY = SecretParam("SUPADATA_API_KEY")
 NEWS_API_KEY = SecretParam("NEWS_API_KEY")
+HF_TOKEN = SecretParam("HF_TOKEN")
 
-SYSTEM_PROMPT = "You are a fact and bias checking assistant for articles and transcripts."
+SYSTEM_PROMPT = """
+You are a fact and bias checking assistant for articles and transcripts.
+
+Your goal is NOT to argue or make claims.
+Your goal is to evaluate claims using verifiable evidence, scientific consensus, and data.
+
+You must prioritize:
+- empirical evidence
+- measurable data
+- scientific models
+- widely accepted consensus
+
+You must AVOID:
+- unsupported rebuttals
+- vague reasoning
+- opinion-based corrections
+"""
+
 
 
 # main function
@@ -47,7 +65,7 @@ SYSTEM_PROMPT = "You are a fact and bias checking assistant for articles and tra
 # for article:
 #   grab html, filter out unnecessary tags, and upload to openai
 @https_fn.on_call(
-    secrets=[OPENAI_API_KEY, SUPADATA_API_KEY],
+    secrets=[OPENAI_API_KEY, SUPADATA_API_KEY, NEWS_API_KEY, HF_TOKEN],
     memory=4096
 )
 def analyze_url(req: https_fn.CallableRequest):
@@ -208,7 +226,7 @@ def analyze_url(req: https_fn.CallableRequest):
 
 def build_user_prompt(text: str) -> str:
     return f"""
-You are performing a factual and political bias review of a transcript and/or images from the related video.
+You are performing a factual accuracy and political bias analysis of a transcript and/or related images.
 
 STRICT RULES:
 - Only report issues if there is clear evidence of:
@@ -216,34 +234,49 @@ STRICT RULES:
   (2) meaningful political bias
 - Do NOT speculate.
 - Do NOT force findings.
-- Only identify issues that directly relate to the transcript's message.
+- Only identify issues that directly relate to the content.
+EVIDENCE REQUIREMENTS:
+- Every issue and image issue MUST include concrete evidence or scientific reasoning.
+- Prefer:
+  - statistics (percentages, measurements, scale comparisons)
+  - known scientific principles (physics, astronomy, biology, etc.)
+  - real-world constraints (distances, speeds, forces, time scales)
+
+- If evidence cannot be provided, DO NOT flag the issue.
+
+- DO NOT respond with generic rebuttals
+
+- INSTEAD respond with measurable contradictions or observable data conflicts
+
+OUTPUT REQUIREMENTS:
+- Return STRICTLY valid JSON (no markdown, no extra text).
+- Include ALL issues found. Do not stop at one.
+- There is NO limit to number of issues.
+- If no issues exist, return empty arrays.
 
 TEXT ANALYSIS:
-- When reporting issues, return CHARACTER POSITIONS within the transcript.
-- The "start" value must be the index of the first character of the problematic text.
-- The "end" value must be the index immediately after the final character.
-- Indices are based on the EXACT transcript provided below.
-
+- "start" = index of first character of problematic span
+- "end" = index immediately after last character
+- Indices MUST match the exact transcript below
 
 IMAGE ANALYSIS:
-If an issue is based on an image (not directly tied to a specific transcript span):
-- Add it to "image_issues"
-- Include the frame_index (0-based index from provided images)
-- Do NOT assign start/end indices for image issues
+- frame_index = index of image in input (0 = first image)
+- Do NOT include start/end for image issues
 
-Return VALID JSON ONLY.
+ID RULES:
+- issues: ISSUE_1, ISSUE_2, ISSUE_3...
+- image_issues: IMG_1, IMG_2, IMG_3...
 
 JSON FORMAT:
 
 {{
-  "text": "the full text of the article/transcript",
   "issues": [
     {{
       "id": "ISSUE_1",
       "type": "left | right | fake",
       "start": number,
       "end": number,
-      "explanation": "brief explanation of the issue tied to the transcript text"
+      "explanation": "clear explanation tied to the text span"
     }}
   ],
   "image_issues": [
@@ -251,10 +284,10 @@ JSON FORMAT:
       "id": "IMG_1",
       "frame_index": number,
       "type": "left | right | fake | misleading",
-      "explanation": "brief explanation of the issue found in the image"
+      "explanation": "clear explanation of the issue in the image"
     }}
   ],
-  "bias_score": number 1 through 10,
+  "bias_score": number (1-10),
   "alignment": "Left | Lean Left | Center | Lean Right | Right"
 }}
 
@@ -262,8 +295,8 @@ If no issues:
 
 {{
   "issues": [],
-  "image_issues" : [],
-  "bias_score": 0,
+  "image_issues": [],
+  "bias_score": 1,
   "alignment": "Center"
 }}
 
@@ -328,7 +361,7 @@ async def fetch_transcript_async(url):
 # ideally we use relevant frames instead
 # of just the first 5
 def process_frames(video_path):
-    return []  # TEMP disable
+#     return []  # TEMP disable
     cap = cv2.VideoCapture(video_path)
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
@@ -438,7 +471,12 @@ async def process_frames_async(video_path):
 
 
 def score_frame(frame):
-    clip_model, clip_processor = get_clip()
+    hf_token = HF_TOKEN.value
+    clip_model, clip_processor = get_clip(hf_token)
+
+    if clip_model is None or clip_processor is None:
+            return 0.0
+
     image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
 
     prompts = [
@@ -465,10 +503,131 @@ def score_frame(frame):
 
 
 # only loading clip when actually will be used
-def get_clip():
+def get_clip(hf_token):
     global clip_model, clip_processor
+
     if clip_model is None:
-        clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-        clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+        try:
+            clip_model = CLIPModel.from_pretrained(
+                "openai/clip-vit-base-patch32",
+                token=hf_token,
+                cache_dir="/tmp/hf_models"
+            )
+            clip_processor = CLIPProcessor.from_pretrained(
+                "openai/clip-vit-base-patch32",
+                token=hf_token,
+                cache_dir="/tmp/hf_models"
+            )
+        except Exception as e:
+            print("[CLIP LOAD ERROR]:", e)
+            return None, None
+
     return clip_model, clip_processor
 # firebase deploy --only functions
+
+def get_home_news(req: https_fn.CallableRequest):
+    if req.auth is None:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.UNAUTHENTICATED,
+            message="User must be signed in."
+        )
+
+    data = req.data or {}
+    topic = str(data.get("topic", "All")).strip()
+    search = str(data.get("search", "")).strip()
+
+    headers = {
+        "X-Api-Key": NEWS_API_KEY.value
+    }
+
+    try:
+        if search:
+            response = requests.get(
+                "https://newsapi.org/v2/everything",
+                headers=headers,
+                params={
+                    "q": search,
+                    "language": "en",
+                    "sortBy": "publishedAt",
+                    "pageSize": 10
+                },
+                timeout=20
+            )
+        elif topic == "Business":
+            response = requests.get(
+                "https://newsapi.org/v2/top-headlines",
+                headers=headers,
+                params={
+                    "country": "us",
+                    "category": "business",
+                    "pageSize": 10
+                },
+                timeout=20
+            )
+        elif topic == "Tech":
+            response = requests.get(
+                "https://newsapi.org/v2/top-headlines",
+                headers=headers,
+                params={
+                    "country": "us",
+                    "category": "technology",
+                    "pageSize": 10
+                },
+                timeout=20
+            )
+        elif topic == "International":
+            response = requests.get(
+                "https://newsapi.org/v2/everything",
+                headers=headers,
+                params={
+                    "q": "international OR world news",
+                    "language": "en",
+                    "sortBy": "publishedAt",
+                    "pageSize": 10
+                },
+                timeout=20
+            )
+        elif topic == "Politics":
+            response = requests.get(
+                "https://newsapi.org/v2/everything",
+                headers=headers,
+                params={
+                    "q": "politics OR government OR election",
+                    "language": "en",
+                    "sortBy": "publishedAt",
+                    "pageSize": 10
+                },
+                timeout=20
+            )
+        else:
+            response = requests.get(
+                "https://newsapi.org/v2/top-headlines",
+                headers=headers,
+                params={
+                    "country": "us",
+                    "pageSize": 10
+                },
+                timeout=20
+            )
+
+        payload = response.json()
+
+        if response.status_code >= 400 or payload.get("status") != "ok":
+            raise Exception(payload.get("message", f"HTTP {response.status_code}"))
+
+        articles = []
+        for article in payload.get("articles", []):
+            articles.append({
+                "title": article.get("title") or "Untitled",
+                "imageUrl": article.get("urlToImage") or "",
+                "url": article.get("url") or "",
+                "source": (article.get("source") or {}).get("name") or "Unknown"
+            })
+
+        return {"articles": articles}
+
+    except Exception as e:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.INTERNAL,
+            message=f"Failed to fetch home news: {str(e)}"
+        )

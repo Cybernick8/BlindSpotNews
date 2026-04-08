@@ -115,8 +115,11 @@ fun AnalysisScreen(
             isLoading -> CircularProgressIndicator()
 
             result != null -> Column {
-                Text("Text: ${result.text.take(200)}")
-                Text("Bias: ${result.biasScore}")
+                Text("Text: ${result.text.take(100)}\n")
+                Text("Issues: ${result.issues.take(100)}\n")
+                Text("Img Issues: ${result.imageIssues.take(100)}\n")
+                Text("Bias: ${result.biasScore}\n")
+                Text("Alignment: ${result.alignment}\n")
             }
 
             else -> Text("No analysis yet")
@@ -133,10 +136,12 @@ fun AnalysisScreen(
             Button(
                 onClick = {
                     analysisViewModel.saveArticleData(
-                        headline = result.text.take(100),
+                        text = result.text,
+                        issues = result.issues,
+                        imageIssues = result.imageIssues,
                         sourceUrl = urlInput,
                         biasRating = result.biasScore,
-                        factuality = result.alignment
+                        alignment = result.alignment
                     )
                 }
             ) {
