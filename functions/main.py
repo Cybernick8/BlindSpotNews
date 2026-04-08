@@ -36,7 +36,24 @@ SUPADATA_API_KEY = SecretParam("SUPADATA_API_KEY")
 NEWS_API_KEY = SecretParam("NEWS_API_KEY")
 HF_TOKEN = SecretParam("HF_TOKEN")
 
-SYSTEM_PROMPT = "You are a fact and bias checking assistant for articles and transcripts."
+SYSTEM_PROMPT = """
+You are a fact and bias checking assistant for articles and transcripts.
+
+Your goal is NOT to argue or make claims.
+Your goal is to evaluate claims using verifiable evidence, scientific consensus, and data.
+
+You must prioritize:
+- empirical evidence
+- measurable data
+- scientific models
+- widely accepted consensus
+
+You must AVOID:
+- unsupported rebuttals
+- vague reasoning
+- opinion-based corrections
+"""
+
 
 
 # main function
@@ -209,7 +226,7 @@ def analyze_url(req: https_fn.CallableRequest):
 
 def build_user_prompt(text: str) -> str:
     return f"""
-You are performing a factual and political bias review of a transcript and/or images from the related video.
+You are performing a factual accuracy and political bias analysis of a transcript and/or related images.
 
 STRICT RULES:
 - Only report issues if there is clear evidence of:
@@ -217,34 +234,49 @@ STRICT RULES:
   (2) meaningful political bias
 - Do NOT speculate.
 - Do NOT force findings.
-- Only identify issues that directly relate to the transcript's message.
+- Only identify issues that directly relate to the content.
+EVIDENCE REQUIREMENTS:
+- Every issue and image issue MUST include concrete evidence or scientific reasoning.
+- Prefer:
+  - statistics (percentages, measurements, scale comparisons)
+  - known scientific principles (physics, astronomy, biology, etc.)
+  - real-world constraints (distances, speeds, forces, time scales)
+
+- If evidence cannot be provided, DO NOT flag the issue.
+
+- DO NOT respond with generic rebuttals
+
+- INSTEAD respond with measurable contradictions or observable data conflicts
+
+OUTPUT REQUIREMENTS:
+- Return STRICTLY valid JSON (no markdown, no extra text).
+- Include ALL issues found. Do not stop at one.
+- There is NO limit to number of issues.
+- If no issues exist, return empty arrays.
 
 TEXT ANALYSIS:
-- When reporting issues, return CHARACTER POSITIONS within the transcript.
-- The "start" value must be the index of the first character of the problematic text.
-- The "end" value must be the index immediately after the final character.
-- Indices are based on the EXACT transcript provided below.
-
+- "start" = index of first character of problematic span
+- "end" = index immediately after last character
+- Indices MUST match the exact transcript below
 
 IMAGE ANALYSIS:
-If an issue is based on an image (not directly tied to a specific transcript span):
-- Add it to "image_issues"
-- Include the frame_index (0-based index from provided images)
-- Do NOT assign start/end indices for image issues
+- frame_index = index of image in input (0 = first image)
+- Do NOT include start/end for image issues
 
-Return VALID JSON ONLY.
+ID RULES:
+- issues: ISSUE_1, ISSUE_2, ISSUE_3...
+- image_issues: IMG_1, IMG_2, IMG_3...
 
 JSON FORMAT:
 
 {{
-  "text": "the full text of the article/transcript",
-  "issues": "An array of "[
+  "issues": [
     {{
-      "id": "ISSUE_",
+      "id": "ISSUE_1",
       "type": "left | right | fake",
       "start": number,
       "end": number,
-      "explanation": "brief explanation of the issue tied to the transcript text"
+      "explanation": "clear explanation tied to the text span"
     }}
   ],
   "image_issues": [
@@ -252,10 +284,10 @@ JSON FORMAT:
       "id": "IMG_1",
       "frame_index": number,
       "type": "left | right | fake | misleading",
-      "explanation": "brief explanation of the issue found in the image"
+      "explanation": "clear explanation of the issue in the image"
     }}
   ],
-  "bias_score": "number 1 through 10 indicating how biased or incorrect the article is",
+  "bias_score": number (1-10),
   "alignment": "Left | Lean Left | Center | Lean Right | Right"
 }}
 
@@ -263,8 +295,8 @@ If no issues:
 
 {{
   "issues": [],
-  "image_issues" : [],
-  "bias_score": 0,
+  "image_issues": [],
+  "bias_score": 1,
   "alignment": "Center"
 }}
 
