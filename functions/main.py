@@ -34,6 +34,7 @@ executor = ThreadPoolExecutor()
 OPENAI_API_KEY = SecretParam("OPENAI_API_KEY")
 SUPADATA_API_KEY = SecretParam("SUPADATA_API_KEY")
 NEWS_API_KEY = SecretParam("NEWS_API_KEY")
+HF_TOKEN = SecretParam("HF_TOKEN")
 
 SYSTEM_PROMPT = "You are a fact and bias checking assistant for articles and transcripts."
 
@@ -47,7 +48,7 @@ SYSTEM_PROMPT = "You are a fact and bias checking assistant for articles and tra
 # for article:
 #   grab html, filter out unnecessary tags, and upload to openai
 @https_fn.on_call(
-    secrets=[OPENAI_API_KEY, SUPADATA_API_KEY, NEWS_API_KEY],
+    secrets=[OPENAI_API_KEY, SUPADATA_API_KEY, NEWS_API_KEY, HF_TOKEN],
     memory=4096
 )
 def analyze_url(req: https_fn.CallableRequest):
@@ -237,9 +238,9 @@ JSON FORMAT:
 
 {{
   "text": "the full text of the article/transcript",
-  "issues": [
+  "issues": "An array of "[
     {{
-      "id": "ISSUE_1",
+      "id": "ISSUE_",
       "type": "left | right | fake",
       "start": number,
       "end": number,
@@ -254,7 +255,7 @@ JSON FORMAT:
       "explanation": "brief explanation of the issue found in the image"
     }}
   ],
-  "bias_score": number 1 through 10,
+  "bias_score": "number 1 through 10 indicating how biased or incorrect the article is",
   "alignment": "Left | Lean Left | Center | Lean Right | Right"
 }}
 
@@ -328,7 +329,7 @@ async def fetch_transcript_async(url):
 # ideally we use relevant frames instead
 # of just the first 5
 def process_frames(video_path):
-    return []  # TEMP disable
+#     return []  # TEMP disable
     cap = cv2.VideoCapture(video_path)
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
@@ -438,7 +439,12 @@ async def process_frames_async(video_path):
 
 
 def score_frame(frame):
-    clip_model, clip_processor = get_clip()
+    hf_token = HF_TOKEN.value
+    clip_model, clip_processor = get_clip(hf_token)
+
+    if clip_model is None or clip_processor is None:
+            return 0.0
+
     image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
 
     prompts = [
@@ -465,11 +471,25 @@ def score_frame(frame):
 
 
 # only loading clip when actually will be used
-def get_clip():
+def get_clip(hf_token):
     global clip_model, clip_processor
+
     if clip_model is None:
-        clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-        clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+        try:
+            clip_model = CLIPModel.from_pretrained(
+                "openai/clip-vit-base-patch32",
+                token=hf_token,
+                cache_dir="/tmp/hf_models"
+            )
+            clip_processor = CLIPProcessor.from_pretrained(
+                "openai/clip-vit-base-patch32",
+                token=hf_token,
+                cache_dir="/tmp/hf_models"
+            )
+        except Exception as e:
+            print("[CLIP LOAD ERROR]:", e)
+            return None, None
+
     return clip_model, clip_processor
 # firebase deploy --only functions
 

@@ -11,14 +11,16 @@ class AnalysisViewModel : ViewModel() {
     private val db = Firebase.firestore
 
     // A function our UI calls when an article is analyzed
-    fun saveArticleData(headline: String, sourceUrl: String, biasRating: String, factuality: String) {
+    fun saveArticleData(text: String, issues: String, imageIssues: String, sourceUrl: String, biasRating: String, alignment: String) {
 
         // Maps the data to key-value pairs for Firestore
         val article = hashMapOf(
-            "headline" to headline,
+            "text" to text,
+            "issues" to issues,
+            "imageIssues" to imageIssues,
             "source_url" to sourceUrl,
             "bias_rating" to biasRating,
-            "factuality" to factuality
+            "alignment" to alignment
         )
 
         // Send it to the "analyzed_articles" collection
