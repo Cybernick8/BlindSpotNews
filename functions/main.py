@@ -546,6 +546,10 @@ def get_clip(hf_token):
     return clip_model, clip_processor
 # firebase deploy --only functions
 
+@https_fn.on_call(
+    secrets=[NEWS_API_KEY],
+    memory=512
+)
 def get_home_news(req: https_fn.CallableRequest):
     if req.auth is None:
         raise https_fn.HttpsError(
