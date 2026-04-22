@@ -19,7 +19,6 @@ import time
 import uuid
 import yt_dlp
 import cv2
-from transformers import CLIPProcessor, CLIPModel
 from PIL import Image
 import sys
 import io
@@ -98,12 +97,18 @@ def analyze_url(req: https_fn.CallableRequest):
                 loop = asyncio.get_event_loop()
 
                 video_task = None
+
                 video_task = loop.run_in_executor(executor, download_video, url)
+
 
                 transcript_task = asyncio.create_task(fetch_transcript_async(url))
 
                 if video_task:
-                    video_path = await video_task
+                    try:
+                        video_path = await video_task
+                    except Exception as e:
+                        print("[Download Error]:", repr(e))
+                        video_path = None
                 else:
                     video_path = None
 
@@ -128,8 +133,12 @@ def analyze_url(req: https_fn.CallableRequest):
                 text = transcript
             except Exception as e:
                 print("[VIDEO PIPELINE ERROR]:", repr(e))
+                if not transcript:
+                    text = "There seems to be an issue with analyzing this link. Please try again or use a different link."
+                else:
+                    text = transcript
+
                 encoded_frames = []
-                text = "There seems to be an issue with analyzing this link. Please try again or use a different link."
 
         else:
             r = requests.get(url, timeout=30, headers={"User-Agent": "Mozilla/5.0"})
@@ -160,7 +169,9 @@ def analyze_url(req: https_fn.CallableRequest):
 
         content = [{"type": "input_text", "text": user_prompt}]
 
-        # frames currently empty (stubbed)
+
+        print("[IMG PIPELINE] Images sent: ", len(encoded_frames))
+
         for img in encoded_frames:
             if not img:
                 continue
@@ -199,8 +210,10 @@ def analyze_url(req: https_fn.CallableRequest):
         image_issues = analysis.get("image_issues", [])
         bias_score = analysis.get("bias_score", 0)
         alignment = analysis.get("alignment", "Center")
+        summary = analysis.get("summary", "No issues found.")
         print(f"\n\n[OUTPUT] issues: {issues}")
         print(f"\n\n[OUTPUT] vid issues: {image_issues}")
+        print(f"\n\n[OUTPUT] summary: {summary}")
         print(f"\n\n[OUTPUT] bias score: {bias_score}")
         print(f"\n\n[OUTPUT] alignment: {alignment}")
 
@@ -209,6 +222,7 @@ def analyze_url(req: https_fn.CallableRequest):
             "text": text,
             "issues": issues,
             "image_issues": image_issues,
+            "summary": summary,
             "bias_score": bias_score,
             "alignment": alignment
         }
@@ -260,8 +274,14 @@ TEXT ANALYSIS:
 - Indices MUST match the exact transcript below
 
 IMAGE ANALYSIS:
+- Do NOT create more than 5 images analyses. If you find more than 5 image issues, only use the top 5 most relevant images that are UNIQUE from each other
 - frame_index = index of image in input (0 = first image)
 - Do NOT include start/end for image issues
+
+SUMMARY:
+- Give a modest overall evaluation on the quality/credibility of the given source
+- Try to go easy on subject
+- if there are only speculative / lack of credible source issues, do not immediately assume incorrectness
 
 ID RULES:
 - issues: ISSUE_1, ISSUE_2, ISSUE_3...
@@ -287,6 +307,7 @@ JSON FORMAT:
       "explanation": "clear explanation of the issue in the image"
     }}
   ],
+  "summary": "2-5 sentence summary of the content.",
   "bias_score": number (1-10),
   "alignment": "Left | Lean Left | Center | Lean Right | Right"
 }}
@@ -296,6 +317,7 @@ If no issues:
 {{
   "issues": [],
   "image_issues": [],
+  "summary": "I wasn't able to find any issues with this content.",
   "bias_score": 1,
   "alignment": "Center"
 }}
@@ -364,42 +386,41 @@ def process_frames(video_path):
 #     return []  # TEMP disable
     cap = cv2.VideoCapture(video_path)
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    fps = cap.get(cv2.CAP_PROP_FPS)
 
-    if total_frames <= 0:
+    if total_frames <= 0 or fps <= 0:
         cap.release()
         return []
 
-    # sample ~15 candidate frames from middle
-    start = int(total_frames * 0.2)
-    end = int(total_frames * 0.8)
+    min_frames = 3
+    max_frames = 20
 
-    sample_count = 15
+    # sample ~15 candidate frames from middle
+    duration_sec = total_frames / fps
+    start = int(total_frames * 0.1)
+    end = int(total_frames * 0.9)
+
+    sample_count = int(min_frames + (duration_sec**2)/90)
+    sample_count = min(sample_count, max_frames)
+
+
     indices = [
         int(start + (end - start) * i / (sample_count - 1))
         for i in range(sample_count)
     ]
 
-    scored_frames = []
+    frames = []
 
     for idx in indices:
         cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
         ret, frame = cap.read()
 
-        if not ret:
-            continue
-
-        score = score_frame(frame)
-        scored_frames.append((score, frame))
+        if ret:
+            frames.append(frame)
 
     cap.release()
 
-    # sorting by relevance
-    scored_frames.sort(key=lambda x: x[0], reverse=True)
-
-    # taking top 3, can adjust
-    top_frames = [frame for _, frame in scored_frames[:3]]
-
-    return [encode_frame(f) for f in top_frames if f is not None]
+    return [encode_frame(f) for f in frames if f is not None]
 
 
 # video -> usable frames (stub)
