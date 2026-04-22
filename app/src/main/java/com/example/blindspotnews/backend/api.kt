@@ -33,7 +33,6 @@ class Api {
                 text = raw["text"]?.toString() ?: "",
                 issues = raw["issues"]?.toString() ?: "",
                 imageIssues = raw["image_issues"]?.toString() ?: "",
-                summary = raw["summary"]?.toString() ?: "",
                 biasScore = raw["bias_score"]?.toString() ?: "",
                 alignment = raw["alignment"]?.toString() ?: ""
             )
@@ -43,7 +42,6 @@ class Api {
                 text = "",
                 issues = "",
                 imageIssues = "",
-                summary = "",
                 biasScore = "",
                 alignment = ""
             )
@@ -56,7 +54,6 @@ data class AnalysisResult(
     val text: String,
     val issues: String,
     val imageIssues: String,
-    val summary: String,
     val biasScore: String,
     val alignment: String
 )
