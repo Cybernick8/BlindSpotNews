@@ -181,7 +181,7 @@ def analyze_url(req: https_fn.CallableRequest):
             })
 
         resp = client.responses.create(
-            model="gpt-4.1-mini",
+            model="gpt-5.4-mini",
             temperature=0,
             input=[
                 {"role": "system", "content": [{"type": "input_text", "text": SYSTEM_PROMPT}]},
@@ -282,6 +282,7 @@ SUMMARY:
 - Give a modest overall evaluation on the quality/credibility of the given source
 - Try to go easy on subject
 - if there are only speculative / lack of credible source issues, do not immediately assume incorrectness
+- Try to explain both what is done well in the video and what is not
 
 ID RULES:
 - issues: ISSUE_1, ISSUE_2, ISSUE_3...
@@ -307,7 +308,7 @@ JSON FORMAT:
       "explanation": "clear explanation of the issue in the image"
     }}
   ],
-  "summary": "2-5 sentence summary of the content.",
+  "summary": "2-6 sentence summary of the content.",
   "bias_score": number (1-10),
   "alignment": "Left | Lean Left | Center | Lean Right | Right"
 }}
