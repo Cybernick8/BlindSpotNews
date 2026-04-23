@@ -11,6 +11,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.blindspotnews.backend.OutputViewModel
 import androidx.navigation.NavController
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.unit.sp
 
 
 
@@ -28,9 +31,7 @@ fun AnalysisScreen(
     // 2. Local UI State: Holds the state of the checkbox
     var isVideoInput by remember { mutableStateOf(false) }
 
-    val result = viewModel.analysisResult
-
-    val isLoading = viewModel.isLoading
+    val outputText = viewModel.outputText
 
     // 3. Simple layout container
     val scrollState = rememberScrollState()
@@ -104,48 +105,66 @@ fun AnalysisScreen(
 
         // --- OUTPUT SECTION ---
 
-        Text(
-            text = "Analysis Result:",
-            style = MaterialTheme.typography.titleMedium
-        )
+        if (viewModel.analyzedText.isNotEmpty() && viewModel.analyzedText != "Loading...") {
 
-        Spacer(modifier = Modifier.height(8.dp))
+            // AI Summary Section
+            Text(
+                text = "BlindSpot Analysis:",
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
 
-        when {
-            isLoading -> CircularProgressIndicator()
+            Text(
+                text = viewModel.overallAnalysis,
+                fontStyle = FontStyle.Italic,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
 
-            result != null -> Column {
-                Text("Text: ${result.text.take(100)}\n")
-                Text("Issues: ${result.issues.take(100)}\n")
-                Text("Img Issues: ${result.imageIssues.take(100)}\n")
-                Text("Bias: ${result.biasScore}\n")
-                Text("Alignment: ${result.alignment}\n")
-            }
+            // The Original Result Header
+            Text(
+                text = "Article Text:",
+                style = MaterialTheme.typography.titleMedium
+            )
 
-            else -> Text("No analysis yet")
+            Spacer(modifier = Modifier.height(8.dp))
+
+            //  Highlight Component
+            HighlightedArticleText(
+                fullText = viewModel.analyzedText, // Keeping specific parameter name
+                issues = viewModel.detectedIssues
+            )
+
+        } else {
+            // Show loading or the raw output while waiting
+            Text(
+                text = "Analysis Result:",
+                style = MaterialTheme.typography.titleMedium
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = viewModel.outputText,
+                style = MaterialTheme.typography.bodyMedium
+            )
         }
-
-        // 5. Observing the ViewModel
-        // outputText is a 'mutableStateOf', so this Text updates automatically
-
-
 
         /// --- FIRESTORE SAVE BUTTON ---
         // Button should only show if there is actually output to save
-        if (result != null) {
+        if (viewModel.outputText.isNotBlank() && viewModel.outputText != "Loading...") {
             Button(
                 onClick = {
+                    // This now perfectly matches the function and parameters in your ViewModel
                     analysisViewModel.saveArticleData(
-                        text = result.text,
-                        issues = result.issues,
-                        imageIssues = result.imageIssues,
+                        headline = "Pending Headline Extraction",
                         sourceUrl = urlInput,
-                        biasRating = result.biasScore,
-                        alignment = result.alignment
+                        biasRating = "Pending",
+                        factuality = "Pending"
                     )
                 }
             ) {
-                Text("Save Analysis")
+                Text("Save to Database")
             }
         }
     }
