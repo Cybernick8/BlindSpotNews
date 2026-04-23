@@ -19,6 +19,13 @@ import time
 import uuid
 import yt_dlp
 import cv2
+from transformers import CLIPProcessor, CLIPModel
+from PIL import Image
+import sys
+import io
+
+clip_model = None
+clip_processor = None
 
 initialize_app()
 
@@ -28,20 +35,20 @@ OPENAI_API_KEY = SecretParam("OPENAI_API_KEY")
 SUPADATA_API_KEY = SecretParam("SUPADATA_API_KEY")
 NEWS_API_KEY = SecretParam("NEWS_API_KEY")
 
-SYSTEM_PROMPT = "You are a fact and bias checking assistant for articles and transcripts."
+# --- Stricter System Prompt ---
+SYSTEM_PROMPT = """You are an elite factual and political bias checking assistant.
+
+CRITICAL DIRECTIVE:
+Most standard news reporting (like AP, Reuters, or local crime reports) contains ZERO bias and ZERO fake news.
+If an article is standard, objective reporting, it is a MASSIVE SUCCESS to return an EMPTY list for "issues".
+Do NOT nitpick standard journalistic terminology. Do NOT force findings. Only flag text if it is blatantly hyper-partisan, emotionally manipulative, or verifiably false."""
 
 
-# main function
-# /////////////
-# verify authentification, then for video:
-#   download video and generate transcript grab relevant frames
-#   from vid, upload transcript and frames to openai and wait
-#   for response
-# for article:
-#   grab html, filter out unnecessary tags, and upload to openai
-@https_fn.on_call(secrets=[OPENAI_API_KEY, SUPADATA_API_KEY])
+@https_fn.on_call(
+    secrets=[OPENAI_API_KEY, SUPADATA_API_KEY, NEWS_API_KEY],
+    memory=4096
+)
 def analyze_url(req: https_fn.CallableRequest):
-    # Require authentication (matches your earlier security intent)
     print("Auth object:", req.auth)
     if req.auth is None:
         raise https_fn.HttpsError(
@@ -63,14 +70,15 @@ def analyze_url(req: https_fn.CallableRequest):
 
     try:
         if is_video:
-
             start_video_pipeline = time.perf_counter()
 
             async def run_video_pipeline():
                 loop = asyncio.get_event_loop()
 
                 video_task = None
-                # video_task = loop.run_in_executor(executor, download_video, url)
+
+                # NOTE: May need to comment out until cookies are added, if receiving 403 Bot Blockers from YouTube
+                video_task = loop.run_in_executor(executor, download_video, url)
 
                 transcript_task = asyncio.create_task(fetch_transcript_async(url))
 
@@ -78,6 +86,9 @@ def analyze_url(req: https_fn.CallableRequest):
                     video_path = await video_task
                 else:
                     video_path = None
+
+                if video_path and not isinstance(video_path, str):
+                    raise Exception(f"Invalid video_path type: {type(video_path)}")
 
                 if video_path:
                     frames_task = asyncio.create_task(process_frames_async(video_path))
@@ -129,7 +140,6 @@ def analyze_url(req: https_fn.CallableRequest):
 
         content = [{"type": "input_text", "text": user_prompt}]
 
-        # frames currently empty (stubbed)
         for img in encoded_frames:
             if not img:
                 continue
@@ -163,19 +173,16 @@ def analyze_url(req: https_fn.CallableRequest):
         print(f"[PERFORMANCE] openai call: {end_openai - start_openai:.2f} sec")
         print(f"[PERFORMANCE] total call: {end_call - start_call:.2f} sec")
 
-        print(f"\n\n[OUTPUT] text: {text}")
+        # --- Extracting overall_analysis ---
+        overall_analysis = analysis.get("overall_analysis", "Analysis failed to generate.")
         issues = analysis.get("issues", [])
         image_issues = analysis.get("image_issues", [])
         bias_score = analysis.get("bias_score", 0)
         alignment = analysis.get("alignment", "Center")
-        print(f"\n\n[OUTPUT] issues: {issues}")
-        print(f"\n\n[OUTPUT] vid issues: {image_issues}")
-        print(f"\n\n[OUTPUT] bias score: {bias_score}")
-        print(f"\n\n[OUTPUT] alignment: {alignment}")
-
 
         return {
             "text": text,
+            "overall_analysis": overall_analysis,
             "issues": issues,
             "image_issues": image_issues,
             "bias_score": bias_score,
@@ -183,7 +190,7 @@ def analyze_url(req: https_fn.CallableRequest):
         }
 
     except https_fn.HttpsError as e:
-        raise e  # dumb
+        raise e
 
     except Exception as e:
         print("[OPENAI ERROR RAW]:", repr(e))
@@ -194,6 +201,7 @@ def analyze_url(req: https_fn.CallableRequest):
 
 
 def build_user_prompt(text: str) -> str:
+    # --- Added overall_analysis to BOTH blocks ---
     return f"""
 You are performing a factual and political bias review of a transcript and/or images from the related video.
 
@@ -211,7 +219,6 @@ TEXT ANALYSIS:
 - The "end" value must be the index immediately after the final character.
 - Indices are based on the EXACT transcript provided below.
 
-
 IMAGE ANALYSIS:
 If an issue is based on an image (not directly tied to a specific transcript span):
 - Add it to "image_issues"
@@ -224,6 +231,7 @@ JSON FORMAT:
 
 {{
   "text": "the full text of the article/transcript",
+  "overall_analysis": "A 2-3 sentence explanation of the article's general tone, factual reliability, and why you did or did not detect bias.",
   "issues": [
     {{
       "id": "ISSUE_1",
@@ -248,6 +256,8 @@ JSON FORMAT:
 If no issues:
 
 {{
+  "text": "the full text of the article/transcript",
+  "overall_analysis": "A 2-3 sentence explanation of the article's general tone, factual reliability, and why you did or did not detect bias.",
   "issues": [],
   "image_issues" : [],
   "bias_score": 0,
@@ -259,7 +269,9 @@ Transcript:
 """.strip()
 
 
+
 # using bs to filter out unrelated tags from our html response
+
 def extract_text_from_html(html: str) -> str:
     soup = BeautifulSoup(html, "html.parser")
 
@@ -267,17 +279,18 @@ def extract_text_from_html(html: str) -> str:
                      "button", "canvas", "svg", "video", "audio", "link", "meta", "noscript"]):
         tag.decompose()
 
+    # --- Using \n\n for paragraph breaks ---
     article = soup.find("article")
     if article:
-        text = article.get_text(" ", strip=True)
+        text = article.get_text("\n\n", strip=True)
     else:
         paragraphs = soup.find_all("p")
-        text = " ".join(p.get_text(" ", strip=True) for p in paragraphs)
+        text = "\n\n".join(p.get_text(" ", strip=True) for p in paragraphs)
 
     return text.strip()
 
-
 # grabbing transcript for video, scrapping unnecessary content
+
 async def fetch_transcript_async(url):
     supadata_endpoint = "https://api.supadata.ai/v1/transcript"
 
@@ -292,12 +305,10 @@ async def fetch_transcript_async(url):
     loop = asyncio.get_event_loop()
     r = await loop.run_in_executor(executor, blocking_request)
 
-    # Checking why supadata is rate limiting
     if r.status_code == 429:
         retry_after = r.headers.get("Retry-After")
         print("[SUPADATA RATE LIMIT] Retry-After:", retry_after)
         raise Exception(f"Supadata HTTP 429 (Retry-After={retry_after})")
-
 
     if r.status_code >= 400:
         raise Exception(f"Supadata HTTP {r.status_code}")
@@ -311,28 +322,58 @@ async def fetch_transcript_async(url):
     return text.strip()
 
 
+
 # Grab first frames and encode them,
 # ideally we use relevant frames instead
 # of just the first 5
+
 def process_frames(video_path):
+    return []  # TEMP disable
     cap = cv2.VideoCapture(video_path)
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-    ret, frame = cap.read()
-    cap.release()
-
-    if not ret:
+    if total_frames <= 0:
+        cap.release()
         return []
 
-    return [encode_frame(frame)]
+     # sample ~15 candidate frames from middle
+    start = int(total_frames * 0.2)
+    end = int(total_frames * 0.8)
 
+    sample_count = 15
+    indices = [
+        int(start + (end - start) * i / (sample_count - 1))
+        for i in range(sample_count)
+    ]
+
+    scored_frames = []
+
+    for idx in indices:
+        cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
+        ret, frame = cap.read()
+
+        if not ret:
+            continue
+
+        score = score_frame(frame)
+        scored_frames.append((score, frame))
+
+    cap.release()
+
+    scored_frames.sort(key=lambda x: x[0], reverse=True)
+    top_frames = [frame for _, frame in scored_frames[:3]]
+
+    return [encode_frame(f) for f in top_frames if f is not None]
 
 # video -> usable frames (stub)
+
 def extract_frames(video_path):
     return []
 
 
 # Taking our video from url, downloading the video,
 # and saving it
+
 def download_video(url):
     output_template = f"/tmp/{uuid.uuid4()}.%(ext)s"
 
@@ -345,28 +386,41 @@ def download_video(url):
         "ignoreerrors": False,
         "cachedir": False,
         "no_warnings": True,
+        "restrictfilenames": True,
+        "encoding": "utf-8",
     }
+
     try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                result = ydl.extract_info(url, download=True)
+        original_stdout = sys.stdout
+        original_stderr = sys.stderr
+        sys.stdout = io.StringIO()
+        sys.stderr = io.StringIO()
 
-                print("Result type:", type(result))
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            result = ydl.extract_info(url, download=True)
 
-                file_path = ydl.prepare_filename(result)
+        sys.stdout = original_stdout
+        sys.stderr = original_stderr
 
-                if not isinstance(file_path, str):
-                    raise Exception(f"Invalid file path type: {type(file_path)}")
+        if not result:
+            raise Exception("yt_dlp returned no result")
 
-                print("Downloaded file path:", file_path)
+        file_path = ydl.prepare_filename(result)
 
-                return file_path
+        if isinstance(file_path, bytes):
+            file_path = file_path.decode("utf-8", errors="ignore")
+
+        return file_path
 
     except Exception as e:
+        sys.stdout = original_stdout
+        sys.stderr = original_stderr
         print("YT-DLP ERROR:", repr(e))
         raise
 
 
 # encoding to meet openai api's img expectations
+
 def encode_frame(frame):
     success, buffer = cv2.imencode(".jpg", frame)
 
@@ -377,8 +431,151 @@ def encode_frame(frame):
 
 
 # async to reduce execution time
+
 async def process_frames_async(video_path):
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(executor, process_frames, video_path)
 
+
+def score_frame(frame):
+    clip_model, clip_processor = get_clip()
+    image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+
+    prompts = [
+        "news broadcast",
+        "person speaking",
+        "text on screen",
+        "chart or graph",
+        "interview",
+        "headline screenshot"
+    ]
+
+    inputs = clip_processor(
+        text=prompts,
+        images=image,
+        return_tensors="pt",
+        padding=True
+    )
+
+    outputs = clip_model(**inputs)
+    logits_per_image = outputs.logits_per_image
+    scores = logits_per_image.softmax(dim=1)
+
+    return scores.max().item() # best match score
+
+# only loading clip when actually will be used
+def get_clip():
+    global clip_model, clip_processor
+    if clip_model is None:
+        clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+        clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+    return clip_model, clip_processor
+
+
 # firebase deploy --only functions
+def get_home_news(req: https_fn.CallableRequest):
+    if req.auth is None:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.UNAUTHENTICATED,
+            message="User must be signed in."
+        )
+
+    data = req.data or {}
+    topic = str(data.get("topic", "All")).strip()
+    search = str(data.get("search", "")).strip()
+
+    headers = {
+        "X-Api-Key": NEWS_API_KEY.value
+    }
+
+    try:
+        if search:
+            response = requests.get(
+                "https://newsapi.org/v2/everything",
+                headers=headers,
+                params={
+                    "q": search,
+                    "language": "en",
+                    "sortBy": "publishedAt",
+                    "pageSize": 10
+                },
+                timeout=20
+            )
+        elif topic == "Business":
+            response = requests.get(
+                "https://newsapi.org/v2/top-headlines",
+                headers=headers,
+                params={
+                    "country": "us",
+                    "category": "business",
+                    "pageSize": 10
+                },
+                timeout=20
+            )
+        elif topic == "Tech":
+            response = requests.get(
+                "https://newsapi.org/v2/top-headlines",
+                headers=headers,
+                params={
+                    "country": "us",
+                    "category": "technology",
+                    "pageSize": 10
+                },
+                timeout=20
+            )
+        elif topic == "International":
+            response = requests.get(
+                "https://newsapi.org/v2/everything",
+                headers=headers,
+                params={
+                    "q": "international OR world news",
+                    "language": "en",
+                    "sortBy": "publishedAt",
+                    "pageSize": 10
+                },
+                timeout=20
+            )
+        elif topic == "Politics":
+            response = requests.get(
+                "https://newsapi.org/v2/everything",
+                headers=headers,
+                params={
+                    "q": "politics OR government OR election",
+                    "language": "en",
+                    "sortBy": "publishedAt",
+                    "pageSize": 10
+                },
+                timeout=20
+            )
+        else:
+            response = requests.get(
+                "https://newsapi.org/v2/top-headlines",
+                headers=headers,
+                params={
+                    "country": "us",
+                    "pageSize": 10
+                },
+                timeout=20
+            )
+
+        payload = response.json()
+
+        if response.status_code >= 400 or payload.get("status") != "ok":
+            raise Exception(payload.get("message", f"HTTP {response.status_code}"))
+
+        articles = []
+        for article in payload.get("articles", []):
+            articles.append({
+                "title": article.get("title") or "Untitled",
+                "imageUrl": article.get("urlToImage") or "",
+                "url": article.get("url") or "",
+                "source": (article.get("source") or {}).get("name") or "Unknown"
+            })
+
+        return {"articles": articles}
+
+    except Exception as e:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.INTERNAL,
+            message=f"Failed to fetch home news: {str(e)}"
+        )
