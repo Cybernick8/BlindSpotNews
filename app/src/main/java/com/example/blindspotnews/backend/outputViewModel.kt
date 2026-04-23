@@ -12,11 +12,18 @@ import com.example.blindspotnews.ui.BiasIssue
 
 class OutputViewModel : ViewModel() {
 
-
+    var isLoading by mutableStateOf(false)
+        private set
     var outputText by mutableStateOf("Processing...")
         private set
 
     var overallAnalysis by mutableStateOf("Analyzing article tone...")
+
+    var biasRating by mutableStateOf("")
+        private set
+
+    var alignment by mutableStateOf("")
+        private set
 
     // Variables to hold the parsed text and the list of issues for UI highlight component
     var analyzedText by mutableStateOf("")
@@ -25,6 +32,7 @@ class OutputViewModel : ViewModel() {
         private set
 
     fun analyze(url: String, isVideo: Boolean){
+        isLoading = true
         outputText = "Loading..."
         analyzedText = "" // Clear old text before new search
         detectedIssues = emptyList() // Clear old highlights before new search
@@ -76,6 +84,8 @@ class OutputViewModel : ViewModel() {
                 // Extract properties safely
                 analyzedText = parsedData["text"] as? String ?: "Error extracting text."
                 overallAnalysis = parsedData["overall_analysis"] as? String ?: "No overall analysis provided."
+                biasRating = parsedData["bias_score"] as? String ?: "No bias rating provided."
+                alignment = parsedData["alignment"] as? String ?: "No overall analysis provided."
                 val rawIssues = parsedData["issues"] as? List<Map<String, Any>> ?: emptyList()
 
                 detectedIssues = rawIssues.mapNotNull { issueMap ->
@@ -97,6 +107,8 @@ class OutputViewModel : ViewModel() {
                 outputText = "Error: ${e.message}"
                 analyzedText = "GSON crashed. The API returned this instead of valid JSON:\n\n$rawResult"
                 detectedIssues = emptyList()
+            } finally {
+                isLoading = false
             }
         }
     }

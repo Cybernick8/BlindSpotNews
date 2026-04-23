@@ -104,8 +104,23 @@ fun AnalysisScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         // --- OUTPUT SECTION ---
+        if (viewModel.isLoading) {
+        Column(
+            modifier = Modifier,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = "Analyzing...",
+                style = MaterialTheme.typography.titleMedium
+            )
 
-        if (viewModel.analyzedText.isNotEmpty() && viewModel.analyzedText != "Loading...") {
+            Spacer(modifier = Modifier.height(8.dp))
+
+            CircularProgressIndicator()
+        }
+
+        }
+        else if (viewModel.analyzedText.isNotEmpty()) { // && viewModel.analyzedText != "Loading...") {
 
             // AI Summary Section
             Text(
@@ -115,6 +130,7 @@ fun AnalysisScreen(
                 modifier = Modifier.padding(bottom = 4.dp)
             )
 
+            // Summary
             Text(
                 text = viewModel.overallAnalysis,
                 fontStyle = FontStyle.Italic,
@@ -134,19 +150,12 @@ fun AnalysisScreen(
                 fullText = viewModel.analyzedText, // Keeping specific parameter name
                 issues = viewModel.detectedIssues
             )
-
-        } else {
+        }
+        else {
             // Show loading or the raw output while waiting
             Text(
                 text = "Analysis Result:",
                 style = MaterialTheme.typography.titleMedium
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = viewModel.outputText,
-                style = MaterialTheme.typography.bodyMedium
             )
         }
 
@@ -155,13 +164,19 @@ fun AnalysisScreen(
         if (viewModel.outputText.isNotBlank() && viewModel.outputText != "Loading...") {
             Button(
                 onClick = {
+
+                    // TODO: Need ViewModel to read in all fields for database saving
+
                     // This now perfectly matches the function and parameters in your ViewModel
-                    analysisViewModel.saveArticleData(
-                        headline = "Pending Headline Extraction",
-                        sourceUrl = urlInput,
-                        biasRating = "Pending",
-                        factuality = "Pending"
-                    )
+//                    analysisViewModel.saveArticleData(
+//                        text = viewModel.analyzedText,
+//                        overallAnalysis = viewModel.overallAnalysis,
+//                        issues = viewModel.detectedIssues,
+//                        imageIssues = viewModel.imageIssues,
+//                        sourceUrl = urlInput,
+//                        biasRating = viewModel.biasRating,
+//                        alignment = viewModel.alignment
+//                    )
                 }
             ) {
                 Text("Save to Database")
