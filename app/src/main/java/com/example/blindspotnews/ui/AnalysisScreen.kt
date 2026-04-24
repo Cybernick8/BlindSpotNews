@@ -161,22 +161,21 @@ fun AnalysisScreen(
 
         /// --- FIRESTORE SAVE BUTTON ---
         // Button should only show if there is actually output to save
-        if (viewModel.outputText.isNotBlank() && viewModel.outputText != "Loading...") {
+        if (viewModel.analyzedText.isNotEmpty()) {
             Button(
                 onClick = {
 
                     // TODO: Need ViewModel to read in all fields for database saving
 
-                    // This now perfectly matches the function and parameters in your ViewModel
-//                    analysisViewModel.saveArticleData(
-//                        text = viewModel.analyzedText,
-//                        overallAnalysis = viewModel.overallAnalysis,
-//                        issues = viewModel.detectedIssues,
-//                        imageIssues = viewModel.imageIssues,
-//                        sourceUrl = urlInput,
-//                        biasRating = viewModel.biasRating,
-//                        alignment = viewModel.alignment
-//                    )
+                    analysisViewModel.saveArticleData(
+                        text = viewModel.analyzedText,
+                        overallAnalysis = viewModel.overallAnalysis,
+                        issues = viewModel.detectedIssues,
+                        imageIssues = viewModel.imageIssues,
+                        sourceUrl = urlInput,
+                       biasRating = viewModel.biasRating,
+                        alignment = viewModel.alignment
+                   )
                 }
             ) {
                 Text("Save to Database")
