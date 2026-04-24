@@ -31,6 +31,9 @@ class OutputViewModel : ViewModel() {
     var detectedIssues by mutableStateOf<List<BiasIssue>>(emptyList())
         private set
 
+    var imageIssues by mutableStateOf<List<Map<String, Any>>>(emptyList())
+        private set
+
     fun analyze(url: String, isVideo: Boolean){
         isLoading = true
         outputText = "Loading..."
@@ -87,6 +90,9 @@ class OutputViewModel : ViewModel() {
                 biasRating = parsedData["bias_score"] as? String ?: "No bias rating provided."
                 alignment = parsedData["alignment"] as? String ?: "No overall analysis provided."
                 val rawIssues = parsedData["issues"] as? List<Map<String, Any>> ?: emptyList()
+
+                val imageIssuesRaw = parsedData["image_issues"] as? List<Map<String, Any>> ?: emptyList()
+                imageIssues = imageIssuesRaw
 
                 detectedIssues = rawIssues.mapNotNull { issueMap ->
                     try {
