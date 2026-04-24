@@ -11,6 +11,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.blindspotnews.backend.OutputViewModel
 import androidx.navigation.NavController
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.unit.sp
 
 
 
@@ -28,9 +31,7 @@ fun AnalysisScreen(
     // 2. Local UI State: Holds the state of the checkbox
     var isVideoInput by remember { mutableStateOf(false) }
 
-    val result = viewModel.analysisResult
-
-    val isLoading = viewModel.isLoading
+    val outputText = viewModel.outputText
 
     // 3. Simple layout container
     val scrollState = rememberScrollState()
@@ -103,49 +104,82 @@ fun AnalysisScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         // --- OUTPUT SECTION ---
+        if (viewModel.isLoading) {
+        Column(
+            modifier = Modifier,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = "Analyzing...",
+                style = MaterialTheme.typography.titleMedium
+            )
 
-        Text(
-            text = "Analysis Result:",
-            style = MaterialTheme.typography.titleMedium
-        )
+            Spacer(modifier = Modifier.height(8.dp))
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        when {
-            isLoading -> CircularProgressIndicator()
-
-            result != null -> Column {
-                Text("Text: ${result.text.take(100)}\n")
-                Text("Issues: ${result.issues.take(100)}\n")
-                Text("Img Issues: ${result.imageIssues.take(100)}\n")
-                Text("Bias: ${result.biasScore}\n")
-                Text("Alignment: ${result.alignment}\n")
-            }
-
-            else -> Text("No analysis yet")
+            CircularProgressIndicator()
         }
 
-        // 5. Observing the ViewModel
-        // outputText is a 'mutableStateOf', so this Text updates automatically
+        }
+        else if (viewModel.analyzedText.isNotEmpty()) { // && viewModel.analyzedText != "Loading...") {
 
+            // AI Summary Section
+            Text(
+                text = "BlindSpot Analysis:",
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
 
+            // Summary
+            Text(
+                text = viewModel.overallAnalysis,
+                fontStyle = FontStyle.Italic,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+
+            // The Original Result Header
+            Text(
+                text = "Article Text:",
+                style = MaterialTheme.typography.titleMedium
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            //  Highlight Component
+            HighlightedArticleText(
+                fullText = viewModel.analyzedText, // Keeping specific parameter name
+                issues = viewModel.detectedIssues
+            )
+        }
+        else {
+            // Show loading or the raw output while waiting
+            Text(
+                text = "Analysis Result:",
+                style = MaterialTheme.typography.titleMedium
+            )
+        }
 
         /// --- FIRESTORE SAVE BUTTON ---
         // Button should only show if there is actually output to save
-        if (result != null) {
+        if (viewModel.outputText.isNotBlank() && viewModel.outputText != "Loading...") {
             Button(
                 onClick = {
-                    analysisViewModel.saveArticleData(
-                        text = result.text,
-                        issues = result.issues,
-                        imageIssues = result.imageIssues,
-                        sourceUrl = urlInput,
-                        biasRating = result.biasScore,
-                        alignment = result.alignment
-                    )
+
+                    // TODO: Need ViewModel to read in all fields for database saving
+
+                    // This now perfectly matches the function and parameters in your ViewModel
+//                    analysisViewModel.saveArticleData(
+//                        text = viewModel.analyzedText,
+//                        overallAnalysis = viewModel.overallAnalysis,
+//                        issues = viewModel.detectedIssues,
+//                        imageIssues = viewModel.imageIssues,
+//                        sourceUrl = urlInput,
+//                        biasRating = viewModel.biasRating,
+//                        alignment = viewModel.alignment
+//                    )
                 }
             ) {
-                Text("Save Analysis")
+                Text("Save to Database")
             }
         }
     }

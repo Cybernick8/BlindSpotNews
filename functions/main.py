@@ -19,12 +19,6 @@ import time
 import uuid
 import yt_dlp
 import cv2
-from PIL import Image
-import sys
-import io
-
-clip_model = None
-clip_processor = None
 
 initialize_app()
 
@@ -47,13 +41,10 @@ You must prioritize:
 - scientific models
 - widely accepted consensus
 
-You must AVOID:
-- unsupported rebuttals
-- vague reasoning
-- opinion-based corrections
-"""
-
-
+CRITICAL DIRECTIVE:
+Most standard news reporting (like AP, Reuters, or local crime reports) contains ZERO bias and ZERO fake news.
+If an article is standard, objective reporting, it is a MASSIVE SUCCESS to return an EMPTY list for "issues".
+Do NOT nitpick standard journalistic terminology. Do NOT force findings. Only flag text if it is blatantly hyper-partisan, emotionally manipulative, or verifiably false."""
 
 # main function
 # /////////////
@@ -68,7 +59,6 @@ You must AVOID:
     memory=4096
 )
 def analyze_url(req: https_fn.CallableRequest):
-    # Require authentication (matches your earlier security intent)
     print("Auth object:", req.auth)
     if req.auth is None:
         raise https_fn.HttpsError(
@@ -98,8 +88,8 @@ def analyze_url(req: https_fn.CallableRequest):
 
                 video_task = None
 
+                # NOTE: May need to comment out until cookies are added, if receiving 403 Bot Blockers from YouTube
                 video_task = loop.run_in_executor(executor, download_video, url)
-
 
                 transcript_task = asyncio.create_task(fetch_transcript_async(url))
 
@@ -139,6 +129,7 @@ def analyze_url(req: https_fn.CallableRequest):
                     text = transcript
 
                 encoded_frames = []
+                text = "There seems to be an issue with analyzing this link. Please try again or use a different link."
 
         else:
             r = requests.get(url, timeout=30, headers={"User-Agent": "Mozilla/5.0"})
@@ -181,7 +172,7 @@ def analyze_url(req: https_fn.CallableRequest):
             })
 
         resp = client.responses.create(
-            model="gpt-4.1-mini",
+            model="gpt-5.4-mini",
             temperature=0,
             input=[
                 {"role": "system", "content": [{"type": "input_text", "text": SYSTEM_PROMPT}]},
@@ -210,7 +201,7 @@ def analyze_url(req: https_fn.CallableRequest):
         image_issues = analysis.get("image_issues", [])
         bias_score = analysis.get("bias_score", 0)
         alignment = analysis.get("alignment", "Center")
-        summary = analysis.get("summary", "No issues found.")
+        overall_analysis = analysis.get("summary", "No issues found.")
         print(f"\n\n[OUTPUT] issues: {issues}")
         print(f"\n\n[OUTPUT] vid issues: {image_issues}")
         print(f"\n\n[OUTPUT] summary: {summary}")
@@ -222,13 +213,13 @@ def analyze_url(req: https_fn.CallableRequest):
             "text": text,
             "issues": issues,
             "image_issues": image_issues,
-            "summary": summary,
+            "overall_analysis": overall_analysis,
             "bias_score": bias_score,
             "alignment": alignment
         }
 
     except https_fn.HttpsError as e:
-        raise e  # dumb
+        raise e
 
     except Exception as e:
         print("[OPENAI ERROR RAW]:", repr(e))
@@ -269,9 +260,10 @@ OUTPUT REQUIREMENTS:
 - If no issues exist, return empty arrays.
 
 TEXT ANALYSIS:
-- "start" = index of first character of problematic span
-- "end" = index immediately after last character
-- Indices MUST match the exact transcript below
+- When reporting issues, return CHARACTER POSITIONS within the transcript.
+- The "start" value must be the index of the first character of the problematic text.
+- The "end" value must be the index immediately after the final character.
+- Indices are based on the EXACT transcript provided below.
 
 IMAGE ANALYSIS:
 - Do NOT create more than 5 images analyses. If you find more than 5 image issues, only use the top 5 most relevant images that are UNIQUE from each other
@@ -282,6 +274,7 @@ SUMMARY:
 - Give a modest overall evaluation on the quality/credibility of the given source
 - Try to go easy on subject
 - if there are only speculative / lack of credible source issues, do not immediately assume incorrectness
+- Try to explain both what is done well in the video and what is not
 
 ID RULES:
 - issues: ISSUE_1, ISSUE_2, ISSUE_3...
@@ -307,7 +300,7 @@ JSON FORMAT:
       "explanation": "clear explanation of the issue in the image"
     }}
   ],
-  "summary": "2-5 sentence summary of the content.",
+  "summary": "2-6 sentence summary of the content.",
   "bias_score": number (1-10),
   "alignment": "Left | Lean Left | Center | Lean Right | Right"
 }}
@@ -315,10 +308,11 @@ JSON FORMAT:
 If no issues:
 
 {{
+  "text": "the full text of the article/transcript",
   "issues": [],
-  "image_issues": [],
-  "summary": "I wasn't able to find any issues with this content.",
-  "bias_score": 1,
+  "summary": "A 2-3 sentence explanation of the article's general tone, factual reliability, and why you did or did not detect bias.",
+  "image_issues" : [],
+  "bias_score": 0,
   "alignment": "Center"
 }}
 
@@ -328,6 +322,7 @@ Transcript:
 
 
 # using bs to filter out unrelated tags from our html response
+
 def extract_text_from_html(html: str) -> str:
     soup = BeautifulSoup(html, "html.parser")
 
@@ -335,17 +330,18 @@ def extract_text_from_html(html: str) -> str:
                      "button", "canvas", "svg", "video", "audio", "link", "meta", "noscript"]):
         tag.decompose()
 
+    # --- Using \n\n for paragraph breaks ---
     article = soup.find("article")
     if article:
-        text = article.get_text(" ", strip=True)
+        text = article.get_text("\n\n", strip=True)
     else:
         paragraphs = soup.find_all("p")
-        text = " ".join(p.get_text(" ", strip=True) for p in paragraphs)
+        text = "\n\n".join(p.get_text(" ", strip=True) for p in paragraphs)
 
     return text.strip()
 
-
 # grabbing transcript for video, scrapping unnecessary content
+
 async def fetch_transcript_async(url):
     supadata_endpoint = "https://api.supadata.ai/v1/transcript"
 
@@ -360,12 +356,10 @@ async def fetch_transcript_async(url):
     loop = asyncio.get_event_loop()
     r = await loop.run_in_executor(executor, blocking_request)
 
-    # Checking why supadata is rate limiting
     if r.status_code == 429:
         retry_after = r.headers.get("Retry-After")
         print("[SUPADATA RATE LIMIT] Retry-After:", retry_after)
         raise Exception(f"Supadata HTTP 429 (Retry-After={retry_after})")
-
 
     if r.status_code >= 400:
         raise Exception(f"Supadata HTTP {r.status_code}")
@@ -379,9 +373,11 @@ async def fetch_transcript_async(url):
     return text.strip()
 
 
+
 # Grab first frames and encode them,
 # ideally we use relevant frames instead
 # of just the first 5
+
 def process_frames(video_path):
 #     return []  # TEMP disable
     cap = cv2.VideoCapture(video_path)
@@ -424,12 +420,14 @@ def process_frames(video_path):
 
 
 # video -> usable frames (stub)
+
 def extract_frames(video_path):
     return []
 
 
 # Taking our video from url, downloading the video,
 # and saving it
+
 def download_video(url):
     output_template = f"/tmp/{uuid.uuid4()}.%(ext)s"
 
@@ -476,6 +474,7 @@ def download_video(url):
 
 
 # encoding to meet openai api's img expectations
+
 def encode_frame(frame):
     success, buffer = cv2.imencode(".jpg", frame)
 
@@ -486,6 +485,7 @@ def encode_frame(frame):
 
 
 # async to reduce execution time
+
 async def process_frames_async(video_path):
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(executor, process_frames, video_path)

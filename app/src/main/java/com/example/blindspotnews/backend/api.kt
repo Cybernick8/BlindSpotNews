@@ -3,6 +3,7 @@ package com.example.blindspotnews.backend
 import com.google.firebase.functions.ktx.functions
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.tasks.await
+import com.google.gson.Gson
 
 class Api {
 
@@ -11,52 +12,34 @@ class Api {
     suspend fun analyzeVideoOrArticle(
         url: String,
         isVideo: Boolean
-    ): AnalysisResult {
+    ): String {
 
         val data = hashMapOf(
             "url" to url,
             "isVideo" to isVideo
         )
 
-        try {
+        return try {
+            // Call the Firebase Function
             val result = functions
                 .getHttpsCallable("analyze_url")
                 .call(data)
                 .await()
 
-            println(result.getData())
+            // Grab the raw Map that Firebase automatically created
+            val rawData = result.getData()
 
-            val raw = result.getData() as? Map<*, *>
-                ?: throw Exception("Unexpected response format")
+            // Convert that Map directly into a perfect JSON String!
+            val jsonString = Gson().toJson(rawData)
 
-            return AnalysisResult(
-                text = raw["text"]?.toString() ?: "",
-                issues = raw["issues"]?.toString() ?: "",
-                imageIssues = raw["image_issues"]?.toString() ?: "",
-                summary = raw["summary"]?.toString() ?: "",
-                biasScore = raw["bias_score"]?.toString() ?: "",
-                alignment = raw["alignment"]?.toString() ?: ""
-            )
+            // Print it to your Android Studio console so you can still debug it
+            println("API RETURNED JSON: $jsonString")
+
+            // 4. Return the pure JSON string to the ViewModel
+            jsonString
 
         } catch (e: Exception) {
-            return AnalysisResult(
-                text = "",
-                issues = "",
-                imageIssues = "",
-                summary = "",
-                biasScore = "",
-                alignment = ""
-            )
+            "Error: ${e.message}"
         }
     }
 }
-
-
-data class AnalysisResult(
-    val text: String,
-    val issues: String,
-    val imageIssues: String,
-    val summary: String,
-    val biasScore: String,
-    val alignment: String
-)
