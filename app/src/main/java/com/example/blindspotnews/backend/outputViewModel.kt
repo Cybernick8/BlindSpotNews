@@ -7,18 +7,38 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
+import com.google.gson.Gson
+import com.example.blindspotnews.ui.BiasIssue
 
 class OutputViewModel : ViewModel() {
 
-    var analysisResult by mutableStateOf<AnalysisResult?>(null)
+    var isLoading by mutableStateOf(false)
+        private set
+    var outputText by mutableStateOf("Processing...")
         private set
 
-    var isLoading by mutableStateOf(false)
+    var overallAnalysis by mutableStateOf("Analyzing article tone...")
+
+    var biasRating by mutableStateOf("")
+        private set
+
+    var alignment by mutableStateOf("")
+        private set
+
+    // Variables to hold the parsed text and the list of issues for UI highlight component
+    var analyzedText by mutableStateOf("")
+        private set
+    var detectedIssues by mutableStateOf<List<BiasIssue>>(emptyList())
+        private set
+
+    var imageIssues by mutableStateOf<List<Map<String, Any>>>(emptyList())
         private set
 
     fun analyze(url: String, isVideo: Boolean){
         isLoading = true
-        analysisResult = null
+        outputText = "Loading..."
+        analyzedText = "" // Clear old text before new search
+        detectedIssues = emptyList() // Clear old highlights before new search
         authenticateAndFetch(url, isVideo)
     }
 
@@ -33,6 +53,8 @@ class OutputViewModel : ViewModel() {
                             ?.addOnSuccessListener {
                                 fetchData(url, isVideo)
                             }
+                    } else {
+                        outputText = "Auth failed: ${task.exception?.message}"
                     }
                 }
         } else {
@@ -42,14 +64,55 @@ class OutputViewModel : ViewModel() {
 
     private fun fetchData(url: String, isVideo: Boolean) {
         viewModelScope.launch {
-            try {
-                val result = Api().analyzeVideoOrArticle(url, isVideo)
+            // Move this variable outside the try block so the catch block can see it
+            var rawResult = "Nothing returned"
 
-                analysisResult = result
-                AnalysisResultStore.lastResult = result
+            try {
+                // Fetch the raw string from your API
+                rawResult = Api().analyzeVideoOrArticle(url, isVideo)
+                outputText = rawResult
+
+                val gson = Gson()
+
+                // If the API wrapped the JSON inside a string, unwrap it first
+                val cleanJson = if (rawResult.trim().startsWith("\"")) {
+                    gson.fromJson(rawResult, String::class.java)
+                } else {
+                    rawResult
+                }
+
+                // Now parse the clean JSON
+                val parsedData = gson.fromJson(cleanJson, Map::class.java)
+
+                // Extract properties safely
+                analyzedText = parsedData["text"] as? String ?: "Error extracting text."
+                overallAnalysis = parsedData["overall_analysis"] as? String ?: "No overall analysis provided."
+                biasRating = parsedData["bias_score"] as? String ?: "No bias rating provided."
+                alignment = parsedData["alignment"] as? String ?: "No overall analysis provided."
+                val rawIssues = parsedData["issues"] as? List<Map<String, Any>> ?: emptyList()
+
+                val imageIssuesRaw = parsedData["image_issues"] as? List<Map<String, Any>> ?: emptyList()
+                imageIssues = imageIssuesRaw
+
+                detectedIssues = rawIssues.mapNotNull { issueMap ->
+                    try {
+                        BiasIssue(
+                            type = issueMap["type"] as? String ?: "Unknown",
+                            start = (issueMap["start"] as? Double)?.toInt() ?: 0,
+                            end = (issueMap["end"] as? Double)?.toInt() ?: 0,
+                            explanation = issueMap["explanation"] as? String ?: "No explanation provided."
+                        )
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
 
             } catch (e: Exception) {
-
+                // --- DEBUGGER ---
+                // If it crashes, print exactly what broke Gson to the screen
+                outputText = "Error: ${e.message}"
+                analyzedText = "GSON crashed. The API returned this instead of valid JSON:\n\n$rawResult"
+                detectedIssues = emptyList()
             } finally {
                 isLoading = false
             }

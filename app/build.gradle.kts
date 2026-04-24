@@ -53,6 +53,7 @@ dependencies {
     implementation("androidx.credentials:credentials:1.3.0")
     implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
+    implementation("com.google.code.gson:gson:2.10.1")
     // Pin Core so it doesn't demand SDK 36 / AGP 8.9+
     constraints {
         implementation("androidx.core:core:1.13.1")
