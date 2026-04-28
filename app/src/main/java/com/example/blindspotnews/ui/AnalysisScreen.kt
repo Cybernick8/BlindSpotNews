@@ -14,6 +14,10 @@ import androidx.navigation.NavController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.graphics.asImageBitmap
 
 
 
@@ -150,6 +154,79 @@ fun AnalysisScreen(
                 fullText = viewModel.analyzedText, // Keeping specific parameter name
                 issues = viewModel.detectedIssues
             )
+
+            Spacer(modifier = Modifier.height(24.dp))
+            Text("ImageIssues count: ${viewModel.imageIssues.size}")
+            Text("Frames count: ${viewModel.frames.size}")
+            if (viewModel.imageIssues.isNotEmpty()) {
+
+                Text(
+                    text = "Image Issues:",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(viewModel.imageIssues) { issue ->
+
+                        val frame = viewModel.frames.getOrNull(issue.frameIndex)
+
+                        if (frame != null) {
+                            val bitmap = viewModel.decodeBase64ToBitmap(frame)
+
+                            Card(
+                                modifier = Modifier.width(250.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(8.dp)) {
+
+                                    Image(
+                                        bitmap = bitmap.asImageBitmap(),
+                                        contentDescription = "Frame",
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(150.dp)
+                                    )
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    Text(
+                                        text = issue.type,
+                                        fontWeight = FontWeight.Bold
+                                    )
+
+                                    Text(
+                                        text = issue.explanation,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Bias + Alignment Row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Bias Score: ${viewModel.biasRating}",
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                Text(
+                    text = "Alignment: ${viewModel.alignment}",
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+
         }
         else {
             // Show loading or the raw output while waiting
