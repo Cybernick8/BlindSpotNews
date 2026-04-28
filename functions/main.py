@@ -19,6 +19,8 @@ import time
 import uuid
 import yt_dlp
 import cv2
+import sys
+import io
 
 initialize_app()
 
@@ -204,15 +206,39 @@ def analyze_url(req: https_fn.CallableRequest):
         overall_analysis = analysis.get("summary", "No issues found.")
         print(f"\n\n[OUTPUT] issues: {issues}")
         print(f"\n\n[OUTPUT] vid issues: {image_issues}")
-        print(f"\n\n[OUTPUT] summary: {summary}")
+        print(f"\n\n[OUTPUT] summary: {overall_analysis }")
         print(f"\n\n[OUTPUT] bias score: {bias_score}")
         print(f"\n\n[OUTPUT] alignment: {alignment}")
 
+        # Filtering out the frames we dont use in image_issues to reduce
+        # data sent to client
+        used_indices = sorted(set(
+            int(issue["frame_index"])
+            for issue in image_issues
+            if "frame_index" in issue
+            and isinstance(issue["frame_index"], (int, float))
+            and int(issue["frame_index"]) < len(encoded_frames)
+        ))
+
+        filtered_frames = [
+            encoded_frames[i]
+            for i in used_indices
+            if i < len(encoded_frames)
+        ]
+
+        index_map = {old: new for new, old in enumerate(used_indices)}
+
+        for issue in image_issues:
+            if "frame_index" in issue:
+                old_index = int(issue["frame_index"])
+                if old_index in index_map:
+                    issue["frame_index"] = index_map[old_index]
 
         return {
             "text": text,
             "issues": issues,
             "image_issues": image_issues,
+            "frames": filtered_frames,
             "overall_analysis": overall_analysis,
             "bias_score": bias_score,
             "alignment": alignment
@@ -266,6 +292,18 @@ TEXT ANALYSIS:
 - Indices are based on the EXACT transcript provided below.
 
 IMAGE ANALYSIS:
+- You are allowed to flag images that are:
+  - misleading
+  - emotionally manipulative
+  - contextually deceptive
+  - visually exaggerated
+  - implying claims not supported by the transcript
+
+- Examples of valid image issues:
+ - dramatic, exaggerated visuals unrelated to actual claims
+ - charts or graphics that are incorrect or being misrepresented
+ - staged or sensational imagery
+
 - Do NOT create more than 5 images analyses. If you find more than 5 image issues, only use the top 5 most relevant images that are UNIQUE from each other
 - frame_index = index of image in input (0 = first image)
 - Do NOT include start/end for image issues
@@ -444,17 +482,15 @@ def download_video(url):
         "encoding": "utf-8",
     }
 
+    original_stdout = sys.stdout
+    original_stderr = sys.stderr
+
     try:
-        original_stdout = sys.stdout
-        original_stderr = sys.stderr
         sys.stdout = io.StringIO()
         sys.stderr = io.StringIO()
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             result = ydl.extract_info(url, download=True)
-
-        sys.stdout = original_stdout
-        sys.stderr = original_stderr
 
         if not result:
             raise Exception("yt_dlp returned no result")
@@ -467,10 +503,12 @@ def download_video(url):
         return file_path
 
     except Exception as e:
+        print("YT-DLP ERROR:", repr(e))
+        return None   # ✅ IMPORTANT: don't re-raise
+
+    finally:
         sys.stdout = original_stdout
         sys.stderr = original_stderr
-        print("YT-DLP ERROR:", repr(e))
-        raise
 
 
 # encoding to meet openai api's img expectations

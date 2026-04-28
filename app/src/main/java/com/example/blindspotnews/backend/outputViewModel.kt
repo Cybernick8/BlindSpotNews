@@ -1,5 +1,8 @@
 package com.example.blindspotnews.backend
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.util.Base64
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -31,11 +34,19 @@ class OutputViewModel : ViewModel() {
     var detectedIssues by mutableStateOf<List<BiasIssue>>(emptyList())
         private set
 
+    var imageIssues by mutableStateOf<List<ImageIssue>>(emptyList())
+        private set
+
+    var frames by mutableStateOf<List<String>>(emptyList())
+        private set
+
     fun analyze(url: String, isVideo: Boolean){
         isLoading = true
         outputText = "Loading..."
         analyzedText = "" // Clear old text before new search
         detectedIssues = emptyList() // Clear old highlights before new search
+        imageIssues = emptyList()
+        frames = emptyList()
         authenticateAndFetch(url, isVideo)
     }
 
@@ -84,7 +95,8 @@ class OutputViewModel : ViewModel() {
                 // Extract properties safely
                 analyzedText = parsedData["text"] as? String ?: "Error extracting text."
                 overallAnalysis = parsedData["overall_analysis"] as? String ?: "No overall analysis provided."
-                biasRating = parsedData["bias_score"] as? String ?: "No bias rating provided."
+                biasRating = (parsedData["bias_score"] as? Double)?.toInt()?.toString()
+                    ?: "No bias rating provided."
                 alignment = parsedData["alignment"] as? String ?: "No overall analysis provided."
                 val rawIssues = parsedData["issues"] as? List<Map<String, Any>> ?: emptyList()
 
@@ -101,6 +113,27 @@ class OutputViewModel : ViewModel() {
                     }
                 }
 
+                val imageIssuesRaw = parsedData["image_issues"] as? List<Map<String, Any>> ?: emptyList()
+
+                imageIssues = imageIssuesRaw.mapNotNull { issue ->
+                    try {
+                        ImageIssue(
+                            id = issue["id"] as? String ?: "",
+                            frameIndex = (issue["frame_index"] as? Double)?.toInt() ?: 0,
+                            type = issue["type"] as? String ?: "Unknown",
+                            explanation = issue["explanation"] as? String ?: "No explanation provided."
+                        )
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+
+
+                val framesRaw = parsedData["frames"] as? List<*> ?: emptyList<Any>()
+
+                frames = framesRaw.mapNotNull { it as? String }
+
+
             } catch (e: Exception) {
                 // --- DEBUGGER ---
                 // If it crashes, print exactly what broke Gson to the screen
@@ -111,5 +144,10 @@ class OutputViewModel : ViewModel() {
                 isLoading = false
             }
         }
+    }
+
+    fun decodeBase64ToBitmap(base64: String): Bitmap {
+        val bytes = Base64.decode(base64, Base64.DEFAULT)
+        return BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
     }
 }
