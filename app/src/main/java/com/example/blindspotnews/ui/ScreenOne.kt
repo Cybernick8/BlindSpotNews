@@ -5,38 +5,15 @@ import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import com.google.firebase.auth.FirebaseAuth
 
 @Composable
 fun ScreenOne(
@@ -58,6 +36,7 @@ fun ScreenOne(
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
+    val userEmail = FirebaseAuth.getInstance().currentUser?.email ?: "Guest"
 
     var search by remember { mutableStateOf("") }
     var selectedTopic by remember { mutableStateOf("All") }
@@ -69,11 +48,14 @@ fun ScreenOne(
     }
 
     Scaffold(
+        containerColor = AppColors.background(),
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { navController.navigate("analysis_test") }
+                onClick = { navController.navigate("analysis_test") },
+                containerColor = AppColors.buttonBackground(),
+                contentColor = AppColors.buttonText()
             ) {
-                Text("+")
+                Text("+", fontWeight = FontWeight.Bold)
             }
         }
     ) { padding ->
@@ -81,17 +63,48 @@ fun ScreenOne(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
+                .background(AppColors.background())
                 .padding(16.dp)
         ) {
-            Text(
-                text = "Home",
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                textAlign = TextAlign.Center,
-                color = Color.Black
-            )
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Spacer(modifier = Modifier.width(48.dp))
 
-            Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "Home",
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                    textAlign = TextAlign.Center,
+                    color = AppColors.text()
+                )
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = userEmail,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AppColors.text(),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.widthIn(max = 115.dp)
+                    )
+
+                    Spacer(modifier = Modifier.width(6.dp))
+
+                    IconButton(
+                        onClick = { navController.navigate("profile") },
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(AppColors.buttonBackground())
+                    ) {
+                        Text("👤", color = AppColors.buttonText())
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             OutlinedTextField(
                 value = search,
@@ -99,7 +112,16 @@ fun ScreenOne(
                 placeholder = { Text("Search news") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(16.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = AppColors.text(),
+                    unfocusedBorderColor = AppColors.text(),
+                    focusedTextColor = AppColors.text(),
+                    unfocusedTextColor = AppColors.text(),
+                    cursorColor = AppColors.text(),
+                    focusedContainerColor = AppColors.card(),
+                    unfocusedContainerColor = AppColors.card()
+                )
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -117,7 +139,19 @@ fun ScreenOne(
                             selectedTopic = topic
                             viewModel.loadNews(selectedTopic, search)
                         },
-                        label = { Text(topic) }
+                        label = { Text(topic) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = AppColors.AccentYellow,
+                            selectedLabelColor = Color.Black,
+                            containerColor = AppColors.card(),
+                            labelColor = AppColors.text()
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = selectedTopic == topic,
+                            borderColor = AppColors.text(),
+                            selectedBorderColor = AppColors.text()
+                        )
                     )
                 }
             }
@@ -126,18 +160,18 @@ fun ScreenOne(
 
             Button(
                 onClick = { viewModel.loadNews(selectedTopic, search) },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .align(Alignment.End)
+                    .height(42.dp)
+                    .width(58.dp),
+                shape = CircleShape,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = AppColors.buttonBackground(),
+                    contentColor = AppColors.buttonText()
+                ),
+                contentPadding = PaddingValues(0.dp)
             ) {
-                Text("Load Articles")
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Button(
-                onClick = { navController.navigate("profile") },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Go to Profile")
+                Text("↻", style = MaterialTheme.typography.titleLarge)
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -148,7 +182,7 @@ fun ScreenOne(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator()
+                        CircularProgressIndicator(color = AppColors.text())
                     }
                 }
 
@@ -191,9 +225,9 @@ fun NewsArticleCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.5.dp, AppColors.text()),
+        colors = CardDefaults.cardColors(containerColor = AppColors.card())
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             AsyncImage(
@@ -210,7 +244,7 @@ fun NewsArticleCard(
                 Text(
                     text = article.source,
                     style = MaterialTheme.typography.labelMedium,
-                    color = Color.DarkGray,
+                    color = AppColors.text(),
                     fontWeight = FontWeight.SemiBold
                 )
 
@@ -220,7 +254,7 @@ fun NewsArticleCard(
                     text = article.title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = Color.Black,
+                    color = AppColors.text(),
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -230,7 +264,7 @@ fun NewsArticleCard(
                     Text(
                         text = article.description,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.DarkGray,
+                        color = AppColors.text(),
                         maxLines = 3,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -241,7 +275,7 @@ fun NewsArticleCard(
                     Text(
                         text = article.publishedAt,
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color.Gray
+                        color = AppColors.text()
                     )
                 }
             }
