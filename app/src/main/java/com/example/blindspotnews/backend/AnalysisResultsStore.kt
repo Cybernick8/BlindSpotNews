@@ -1,5 +1,5 @@
 package com.example.blindspotnews.backend
 
-object AnalysisResultStore {
-    var lastResult: String? = null
-}
+//object AnalysisResultStore {
+//    var lastResult: AnalysisResult? = null
+//}

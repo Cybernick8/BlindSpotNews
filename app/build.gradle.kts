@@ -49,6 +49,11 @@ android {
 
 dependencies {
     implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
+    implementation("com.google.firebase:firebase-auth")
+    implementation("androidx.credentials:credentials:1.3.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
+    implementation("com.google.code.gson:gson:2.10.1")
     // Pin Core so it doesn't demand SDK 36 / AGP 8.9+
     constraints {
         implementation("androidx.core:core:1.13.1")
@@ -61,6 +66,7 @@ dependencies {
     implementation(libs.material)
     implementation(libs.androidx.lifecycle.livedata.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     // ----- Jetpack Compose -----
     // One BOM to rule them all (works with Kotlin 1.9.24 / compiler 1.5.15)
     implementation(platform(libs.androidx.compose.bom.v20241001))
@@ -87,6 +93,8 @@ dependencies {
     implementation("org.jsoup:jsoup:1.17.2")
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-functions-ktx")
+    implementation("com.google.firebase:firebase-firestore")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
+    implementation(libs.coil.compose)
 
 }

@@ -4,7 +4,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -15,18 +14,24 @@ import androidx.navigation.compose.rememberNavController
 import com.example.blindspotnews.ui.ScreenOne
 import com.example.blindspotnews.ui.ScreenOutput
 import com.example.blindspotnews.ui.ScreenTwo
+import com.example.blindspotnews.ui.ProfileScreen
 import com.google.firebase.FirebaseApp
 import com.example.blindspotnews.ui.AnalysisScreen
+import com.example.blindspotnews.ui.LoginScreen
+import com.example.blindspotnews.ui.AppColors
+
 
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         FirebaseApp.initializeApp(this)
+
         setContent {
             // Force a light background for visibility with black text
             Surface(
                 modifier = Modifier.fillMaxSize(),
-                color = Color.White  // ensures black text is visible even in system dark mode
+                color = AppColors.background()
             ) {
                 AppNavigation()
             }
@@ -37,16 +42,20 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
-    NavHost(navController = navController, startDestination = "analysis_test") {
+    NavHost(navController = navController, startDestination = "login") {
+
+        composable("login") {
+            LoginScreen(navController)
+        }
 
         composable("analysis_test") {
-            AnalysisScreen()
+            AnalysisScreen(navController)
         }
 
         // Original screens we were testing with
         composable("screen_one") { ScreenOne(navController) }
         composable("screen_two") { ScreenTwo(navController) }
         composable("screen_output") { ScreenOutput(navController) }
+        composable("profile") { ProfileScreen(navController) }
     }
 }
-

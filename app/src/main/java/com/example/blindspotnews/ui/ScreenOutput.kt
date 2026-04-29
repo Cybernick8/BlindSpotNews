@@ -1,67 +1,87 @@
 package com.example.blindspotnews.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.example.blindspotnews.backend.Api
 import com.example.blindspotnews.backend.OutputViewModel
 import com.google.firebase.auth.FirebaseAuth
 
 @Composable
-fun ScreenOutput(navController: NavController, viewModel: OutputViewModel = viewModel()) {
-    var outputText by remember { mutableStateOf("Loading...") }
-
-    val url = "https://www.tiktok.com/@thetalkshour/video/7505110474585836831?is_from_webapp=1&sender_device=pc&web_id=7551590510020920887"
-    val isVideo = true
-
-    LaunchedEffect(Unit){
-        viewModel.analyze(url, isVideo)
-    }
-    outputText = viewModel.outputText
-
-    Text("UID: ${FirebaseAuth.getInstance().currentUser?.uid}")
-
+fun ScreenOutput(
+    navController: NavController,
+    viewModel: OutputViewModel = viewModel()
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(AppColors.background())
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Title
+        Text(
+            text = "UID: ${FirebaseAuth.getInstance().currentUser?.uid ?: "Not signed in"}",
+            color = AppColors.text()
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
         Text(
             text = "Output",
             style = MaterialTheme.typography.headlineMedium,
-            color = Color.Black,
-            modifier = Modifier
-                .align(Alignment.CenterHorizontally)
-                .padding(bottom = 24.dp)
+            color = AppColors.text(),
+            modifier = Modifier.padding(bottom = 24.dp)
         )
 
-        // Output box (currently empty)
         OutlinedTextField(
-            value = outputText,
-            onValueChange = { outputText = it },
-            placeholder = { Text("Your analysis output will appear here...") },
+            value = "hi",
+            onValueChange = {},
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
                 .padding(bottom = 24.dp),
             singleLine = false,
-            maxLines = 20
+            maxLines = 20,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = AppColors.text(),
+                unfocusedBorderColor = AppColors.text(),
+                focusedTextColor = AppColors.text(),
+                unfocusedTextColor = AppColors.text(),
+                focusedContainerColor = AppColors.card(),
+                unfocusedContainerColor = AppColors.card(),
+                cursorColor = AppColors.text()
+            )
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Back to Home
-        Button(onClick = { navController.navigate("screen_one") }) {
+        Button(
+            onClick = { navController.navigate("screen_one") },
+            colors = ButtonDefaults.buttonColors(
+                containerColor = AppColors.buttonBackground(),
+                contentColor = AppColors.buttonText()
+            )
+        ) {
             Text("Back to Home")
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Button(
+            onClick = {
+                navController.navigate("analysis_test") {
+                    popUpTo("analysis_test") { inclusive = false }
+                }
+            },
+            colors = ButtonDefaults.buttonColors(
+                containerColor = AppColors.buttonBackground(),
+                contentColor = AppColors.buttonText()
+            )
+        ) {
+            Text("Go to Analysis Screen")
         }
     }
 }

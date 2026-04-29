@@ -12,7 +12,20 @@
           "package_name": "com.example.blindspotnews"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "431483551588-nmjh3qksn30au2teo0o2qml0kihr4qdn.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.blindspotnews",
+            "certificate_hash": "f9a1206a320bb5db2bcd10d9d415b56458f546eb"
+          }
+        },
+        {
+          "client_id": "431483551588-8egbjhspjm6usert26m0e4mcc0d7oukh.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAp_gmiTPsHm_1p2RrcIF1sLNNJK78YK-Q"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "431483551588-8egbjhspjm6usert26m0e4mcc0d7oukh.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
