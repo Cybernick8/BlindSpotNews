@@ -25,14 +25,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.google.firebase.auth.FirebaseAuth
+import androidx.compose.foundation.background
+import com.example.blindspotnews.ui.AppColors
+import com.example.blindspotnews.ui.AppThemeState
 
 @Composable
 fun ProfileScreen(navController: NavController) {
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .background(AppColors.background())
             .padding(8.dp)
-            .border(3.dp, Color.Black)
+            .border(3.dp, AppColors.text())
             .padding(20.dp),
         contentAlignment = Alignment.TopCenter
     ) {
@@ -45,13 +49,15 @@ fun ProfileScreen(navController: NavController) {
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
                 fontFamily = FontFamily.Monospace,
-                color = Color.Black
+                color = AppColors.text()
             )
 
             Spacer(modifier = Modifier.height(22.dp))
 
-            ProfileOptionButton("Dark Mode") {
-                // later: toggle dark mode
+            ProfileOptionButton(
+                text = if (AppThemeState.isDarkMode) "Light Mode" else "Dark Mode"
+            ) {
+                AppThemeState.isDarkMode = !AppThemeState.isDarkMode
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -111,10 +117,11 @@ fun ProfileOptionButton(
         modifier = Modifier
             .fillMaxWidth(0.95f)
             .height(72.dp),
-        border = BorderStroke(2.dp, Color.Black),
+        border = BorderStroke(2.dp, AppColors.text()),
+
         colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = Color.White,
-            contentColor = Color.Black
+            containerColor = AppColors.card(),
+            contentColor = AppColors.text()
         )
     ) {
         Text(
@@ -124,7 +131,7 @@ fun ProfileOptionButton(
             lineHeight = 22.sp,
             fontWeight = FontWeight.Bold,
             fontFamily = FontFamily.Monospace,
-            color = Color.Black
+            color = AppColors.text()
         )
     }
 }

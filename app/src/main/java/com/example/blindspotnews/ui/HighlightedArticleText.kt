@@ -3,6 +3,7 @@ package com.example.blindspotnews.ui
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -34,10 +35,21 @@ fun HighlightedArticleText(
 
                 // Set the color
                 val highlightColor = when (issue.type.lowercase()) {
-                    "right", "lean right" -> Color.Red.copy(alpha = 0.3f)
-                    "left", "lean left" -> Color.Blue.copy(alpha = 0.3f)
-                    "fake" -> Color.Yellow.copy(alpha = 0.3f)
-                    else -> Color.LightGray.copy(alpha = 0.3f)
+                    "right", "lean right" ->
+                        if (AppThemeState.isDarkMode) Color(0xFFFF8A80).copy(alpha = 0.55f)
+                        else Color.Red.copy(alpha = 0.30f)
+
+                    "left", "lean left" ->
+                        if (AppThemeState.isDarkMode) Color(0xFF82B1FF).copy(alpha = 0.55f)
+                        else Color.Blue.copy(alpha = 0.30f)
+
+                    "fake" ->
+                        if (AppThemeState.isDarkMode) Color(0xFFFFF176).copy(alpha = 0.65f)
+                        else Color.Yellow.copy(alpha = 0.35f)
+
+                    else ->
+                        if (AppThemeState.isDarkMode) Color(0xFFBDBDBD).copy(alpha = 0.50f)
+                        else Color.LightGray.copy(alpha = 0.30f)
                 }
 
                 // Apply the background color
@@ -61,7 +73,9 @@ fun HighlightedArticleText(
     // The actual text UI component that listens for clicks
     ClickableText(
         text = annotatedText,
-        style = MaterialTheme.typography.bodyMedium,
+        style = MaterialTheme.typography.bodyMedium.copy(
+            color = AppColors.text()
+        ),
         onClick = { offset ->
             // Check if the character the user clicked has a "BIAS_ISSUE" tag
             annotatedText.getStringAnnotations(tag = "BIAS_ISSUE", start = offset, end = offset)
@@ -77,14 +91,29 @@ fun HighlightedArticleText(
     selectedIssue?.let { issue ->
         AlertDialog(
             onDismissRequest = { selectedIssue = null }, // Closes if they click outside the box
+            containerColor = AppColors.card(),
+            titleContentColor = AppColors.text(),
+            textContentColor = AppColors.text(),
             title = {
-                Text(text = "Flagged: ${issue.type.uppercase()}")
+                Text(
+                    text = "Flagged: ${issue.type.uppercase()}",
+                    color = AppColors.text()
+                )
             },
             text = {
-                Text(text = issue.explanation)
+                Text(
+                    text = issue.explanation,
+                    color = AppColors.text()
+                )
             },
             confirmButton = {
-                Button(onClick = { selectedIssue = null }) {
+                Button(
+                    onClick = { selectedIssue = null },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AppColors.buttonBackground(),
+                        contentColor = AppColors.buttonText()
+                    )
+                ) {
                     Text("Got it")
                 }
             }

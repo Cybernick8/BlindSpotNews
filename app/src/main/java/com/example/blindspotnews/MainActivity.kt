@@ -18,6 +18,8 @@ import com.example.blindspotnews.ui.ProfileScreen
 import com.google.firebase.FirebaseApp
 import com.example.blindspotnews.ui.AnalysisScreen
 import com.example.blindspotnews.ui.LoginScreen
+import com.example.blindspotnews.ui.AppColors
+
 
 class MainActivity : ComponentActivity() {
 
@@ -29,7 +31,7 @@ class MainActivity : ComponentActivity() {
             // Force a light background for visibility with black text
             Surface(
                 modifier = Modifier.fillMaxSize(),
-                color = Color.White  // ensures black text is visible even in system dark mode
+                color = AppColors.background()
             ) {
                 AppNavigation()
             }
