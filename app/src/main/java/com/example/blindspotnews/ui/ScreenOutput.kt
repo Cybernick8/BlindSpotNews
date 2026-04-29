@@ -1,50 +1,43 @@
 package com.example.blindspotnews.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.example.blindspotnews.backend.Api
 import com.example.blindspotnews.backend.OutputViewModel
 import com.google.firebase.auth.FirebaseAuth
 
 @Composable
-fun ScreenOutput(navController: NavController, viewModel: OutputViewModel = viewModel()) {
-//    var outputText by remember { mutableStateOf("Loading...") }
-//
-//    val url = "https://www.tiktok.com/@mission_driven_mom/video/7608981388422958344?q=flat%20earth%20proof&t=1772587167836"
-//    val isVideo = true
-//          current vid: https://www.tiktok.com/@themakeshiftproject/video/7550754465595297055?q=moon%20landing%20fake&t=1774498604171
-//    LaunchedEffect(Unit){
-//        viewModel.analyze(url, isVideo)
-//    }
-    // https://www.tiktok.com/@alienssighting/video/7269865367537962286?q=Agartha&t=1775452516272
-
-    Text("UID: ${FirebaseAuth.getInstance().currentUser?.uid}")
-
+fun ScreenOutput(
+    navController: NavController,
+    viewModel: OutputViewModel = viewModel()
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(AppColors.background())
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Title
+        Text(
+            text = "UID: ${FirebaseAuth.getInstance().currentUser?.uid ?: "Not signed in"}",
+            color = AppColors.text()
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
         Text(
             text = "Output",
             style = MaterialTheme.typography.headlineMedium,
-            color = Color.Black,
-            modifier = Modifier
-                .align(Alignment.CenterHorizontally)
-                .padding(bottom = 24.dp)
+            color = AppColors.text(),
+            modifier = Modifier.padding(bottom = 24.dp)
         )
 
-        // Output box (currently empty)
         OutlinedTextField(
             value = "hi",
             onValueChange = {},
@@ -53,19 +46,42 @@ fun ScreenOutput(navController: NavController, viewModel: OutputViewModel = view
                 .weight(1f)
                 .padding(bottom = 24.dp),
             singleLine = false,
-            maxLines = 20
+            maxLines = 20,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = AppColors.text(),
+                unfocusedBorderColor = AppColors.text(),
+                focusedTextColor = AppColors.text(),
+                unfocusedTextColor = AppColors.text(),
+                focusedContainerColor = AppColors.card(),
+                unfocusedContainerColor = AppColors.card(),
+                cursorColor = AppColors.text()
+            )
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Back to Home
-        Button(onClick = { navController.navigate("screen_one") }) {
+        Button(
+            onClick = { navController.navigate("screen_one") },
+            colors = ButtonDefaults.buttonColors(
+                containerColor = AppColors.buttonBackground(),
+                contentColor = AppColors.buttonText()
+            )
+        ) {
             Text("Back to Home")
         }
 
-        // Back to the Analysis Screen
-        Button(onClick = { navController.navigate("analysis_test") {
-            popUpTo("analysis_test") { inclusive = false } } }
-        ) { Text("Go to Analysis Screen") }
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Button(
+            onClick = {
+                navController.navigate("analysis_test") {
+                    popUpTo("analysis_test") { inclusive = false }
+                }
+            },
+            colors = ButtonDefaults.buttonColors(
+                containerColor = AppColors.buttonBackground(),
+                contentColor = AppColors.buttonText()
+            )
+        ) {
+            Text("Go to Analysis Screen")
+        }
     }
 }

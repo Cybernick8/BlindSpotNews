@@ -10,9 +10,11 @@ import kotlinx.coroutines.tasks.await
 
 data class HomeNewsArticle(
     val title: String = "",
+    val description: String = "",
     val imageUrl: String = "",
     val url: String = "",
-    val source: String = ""
+    val source: String = "",
+    val publishedAt: String = ""
 )
 
 data class HomeNewsUiState(
@@ -51,9 +53,11 @@ class NewsViewModel : ViewModel() {
                 val articles = rawArticles.map {
                     HomeNewsArticle(
                         title = it["title"] as? String ?: "",
+                        description = it["description"] as? String ?: "",
                         imageUrl = it["imageUrl"] as? String ?: "",
                         url = it["url"] as? String ?: "",
-                        source = it["source"] as? String ?: ""
+                        source = it["source"] as? String ?: "",
+                        publishedAt = it["publishedAt"] as? String ?: ""
                     )
                 }
 
