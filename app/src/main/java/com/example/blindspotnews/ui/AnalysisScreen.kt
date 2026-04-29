@@ -16,6 +16,10 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.blindspotnews.backend.OutputViewModel
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.graphics.asImageBitmap
 
 @Composable
 fun AnalysisScreen(
@@ -172,6 +176,26 @@ fun AnalysisScreen(
                         color = AppColors.text(),
                         fontStyle = FontStyle.Italic
                     )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Bias + Alignment Row
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Bias Score: ${viewModel.biasRating}",
+                            fontWeight = FontWeight.SemiBold
+                        )
+
+                        Text(
+                            text = "Alignment: ${viewModel.alignment}",
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
 
@@ -198,6 +222,62 @@ fun AnalysisScreen(
                         fullText = viewModel.analyzedText,
                         issues = viewModel.detectedIssues
                     )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    if (viewModel.imageIssues.isNotEmpty()) {
+
+                        Text(
+                            text = "Image Issues:",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(viewModel.imageIssues) { issue ->
+
+                                val frame = viewModel.frames.getOrNull(issue.frameIndex)
+
+                                if (frame != null) {
+                                    val bitmap = viewModel.decodeBase64ToBitmap(frame)
+
+                                    Card(
+                                        modifier = Modifier.width(250.dp)
+                                    ) {
+                                        Column(modifier = Modifier.padding(8.dp)) {
+
+                                            Image(
+                                                bitmap = bitmap.asImageBitmap(),
+                                                contentDescription = "Frame",
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .height(150.dp)
+                                            )
+
+                                            Spacer(modifier = Modifier.height(8.dp))
+
+                                            Text(
+                                                text = issue.type,
+                                                fontWeight = FontWeight.Bold
+                                            )
+
+                                            Text(
+                                                text = issue.explanation,
+                                                fontSize = 12.sp
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+
+
+
                 }
             }
         } else {

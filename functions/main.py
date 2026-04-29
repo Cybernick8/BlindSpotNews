@@ -307,6 +307,7 @@ IMAGE ANALYSIS:
 - Do NOT create more than 5 images analyses. If you find more than 5 image issues, only use the top 5 most relevant images that are UNIQUE from each other
 - frame_index = index of image in input (0 = first image)
 - Do NOT include start/end for image issues
+- Refer to them as part of the video, not images. i.e., "In this part of the video..."
 
 SUMMARY:
 - Give a modest overall evaluation on the quality/credibility of the given source
@@ -388,7 +389,7 @@ async def fetch_transcript_async(url):
             supadata_endpoint,
             params={"url": url},
             headers={"x-api-key": SUPADATA_API_KEY.value},
-            timeout=60,
+            timeout=120,
         )
 
     loop = asyncio.get_event_loop()
