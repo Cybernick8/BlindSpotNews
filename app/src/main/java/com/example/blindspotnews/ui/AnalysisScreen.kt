@@ -17,9 +17,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.blindspotnews.backend.OutputViewModel
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.window.Dialog
 
 @Composable
 fun AnalysisScreen(
@@ -31,6 +33,8 @@ fun AnalysisScreen(
     var isVideoInput by remember { mutableStateOf(false) }
 
     val scrollState = rememberScrollState()
+
+    var selectedBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
 
     Column(
         modifier = Modifier
@@ -255,6 +259,9 @@ fun AnalysisScreen(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
                                                     .height(150.dp)
+                                                    .clickable {
+                                                        selectedBitmap = bitmap
+                                                    }
                                             )
 
                                             Spacer(modifier = Modifier.height(8.dp))
@@ -274,9 +281,6 @@ fun AnalysisScreen(
                             }
                         }
                     }
-
-
-
 
                 }
             }
@@ -308,8 +312,29 @@ fun AnalysisScreen(
                     contentColor = AppColors.buttonText()
                 )
             ) {
-                Text("Save to Database")
+                Text("Save Analysis")
             }
         }
+
+        if (selectedBitmap != null) {
+            Dialog(onDismissRequest = { selectedBitmap = null }) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(androidx.compose.ui.graphics.Color.Black)
+                        .clickable { selectedBitmap = null },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        bitmap = selectedBitmap!!.asImageBitmap(),
+                        contentDescription = "Expanded Image",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    )
+                }
+            }
+        }
+
     }
 }
