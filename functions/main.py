@@ -21,6 +21,7 @@ import yt_dlp
 import cv2
 import sys
 import io
+import trafilatura
 
 initialize_app()
 
@@ -134,7 +135,15 @@ def analyze_url(req: https_fn.CallableRequest):
                 text = "There seems to be an issue with analyzing this link. Please try again or use a different link."
 
         else:
-            r = requests.get(url, timeout=30, headers={"User-Agent": "Mozilla/5.0"})
+            r = requests.get(url, timeout=30,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.5",
+                "Accept-Encoding": "gzip, deflate, br",
+                "Connection": "keep-alive",
+            })
+
             if r.status_code >= 400 or not r.text:
                 raise Exception(f"Article fetch HTTP {r.status_code}")
 
@@ -399,7 +408,8 @@ Transcript:
 # using bs to filter out unrelated tags from our html response
 
 def extract_text_from_html(html: str) -> str:
-    soup = BeautifulSoup(html, "html.parser")
+    result = trafilatura.extract(html, include_comments=False, include_tables=False)
+    return result or ""
 
     for tag in soup(["script", "style", "nav", "footer", "header", "iframe", "form", "input",
                      "button", "canvas", "svg", "video", "audio", "link", "meta", "noscript"]):
