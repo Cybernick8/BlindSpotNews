@@ -203,8 +203,8 @@ fun ScreenOne(
                                 article = article,
                                 onClick = {
                                     if (article.url.isNotBlank()) {
-                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(article.url))
-                                        context.startActivity(intent)
+                                        val encodedUrl = Uri.encode(article.url)
+                                        navController.navigate("analysis_test?url=$encodedUrl")
                                     }
                                 }
                             )

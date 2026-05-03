@@ -22,15 +22,34 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.window.Dialog
+import androidx.compose.runtime.LaunchedEffect
 
 @Composable
 fun AnalysisScreen(
     navController: NavController,
     viewModel: OutputViewModel = viewModel(),
-    analysisViewModel: AnalysisViewModel = viewModel()
+    analysisViewModel: AnalysisViewModel = viewModel(),
+    autoUrl: String = ""
 ) {
-    var urlInput by remember { mutableStateOf("") }
-    var isVideoInput by remember { mutableStateOf(false) }
+    var urlInput by remember { mutableStateOf(autoUrl) }
+
+    val isVideo = listOf(
+        "youtube.com/watch", "youtube.com/shorts", "youtu.be/",
+        "tiktok.com", "vm.tiktok.com",
+        "vimeo.com",
+        "twitch.tv",
+        "instagram.com/reel", "instagram.com/p",
+        "facebook.com/watch", "fb.watch",
+        "twitter.com/i/status", "x.com/i/status"
+    ).any { urlInput.contains(it) }
+
+    LaunchedEffect(autoUrl) {
+        if (autoUrl.isNotBlank()) {
+            viewModel.analyze(autoUrl, isVideo)
+        }
+    }
+
+
 
     val scrollState = rememberScrollState()
 
@@ -104,27 +123,11 @@ fun AnalysisScreen(
 
         Spacer(modifier = Modifier.height(18.dp))
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(
-                checked = isVideoInput,
-                onCheckedChange = { isVideoInput = it },
-                colors = CheckboxDefaults.colors(
-                    checkedColor = AppColors.buttonBackground(),
-                    uncheckedColor = AppColors.text(),
-                    checkmarkColor = AppColors.buttonText()
-                )
-            )
-
-            Text(
-                text = "Is this a video?",
-                color = AppColors.text()
-            )
-        }
 
         Spacer(modifier = Modifier.height(18.dp))
 
         Button(
-            onClick = { viewModel.analyze(urlInput, isVideoInput) },
+            onClick = { viewModel.analyze(urlInput, isVideo) },
             enabled = urlInput.isNotBlank(),
             colors = ButtonDefaults.buttonColors(
                 containerColor = AppColors.buttonBackground(),
@@ -216,8 +219,7 @@ fun AnalysisScreen(
                 Column(modifier = Modifier.padding(16.dp)) {
 
                     Text(
-                        text = "Article Text:",
-                        color = AppColors.text(),
+                        text = if (isVideo) "Video Transcript Analysis:" else "Article Analysis:",
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
