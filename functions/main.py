@@ -199,7 +199,7 @@ def analyze_url(req: https_fn.CallableRequest):
         print(f"[PERFORMANCE] total call: {end_call - start_call:.2f} sec")
 
         print(f"\n\n[OUTPUT] text: {text}")
-        issues = analysis.get("issues", [])
+        issues = verify_and_fix_issues(text, analysis.get("issues", []))
         image_issues = analysis.get("image_issues", [])
         bias_score = analysis.get("bias_score", 0)
         alignment = analysis.get("alignment", "Center")
@@ -254,6 +254,39 @@ def analyze_url(req: https_fn.CallableRequest):
             message=f"OpenAI request failed: {repr(e)}"
         )
 
+def verify_and_fix_issues(text: str, issues: list) -> list:
+    fixed = []
+    for issue in issues:
+        quote = issue.get("quote", "")
+        start = issue.get("start")
+        end = issue.get("end")
+
+        if quote:
+            if (
+                start is not None and end is not None
+                and 0 <= start < end <= len(text)
+                and text[start:end] == quote
+            ):
+                fixed.append(issue)
+                continue
+
+            found = text.find(quote)
+            if found != -1:
+                issue["start"] = found
+                issue["end"] = found + len(quote)
+                fixed.append(issue)
+            else:
+                lower_text = text.lower()
+                lower_quote = quote.lower()
+                found_ci = lower_text.find(lower_quote)
+                if found_ci != -1:
+                    issue["start"] = found_ci
+                    issue["end"] = found_ci + len(quote)
+                    fixed.append(issue)
+        elif start is not None and end is not None and 0 <= start < end <= len(text):
+            fixed.append(issue)
+
+    return fixed
 
 def build_user_prompt(text: str) -> str:
     return f"""
@@ -286,10 +319,12 @@ OUTPUT REQUIREMENTS:
 - If no issues exist, return empty arrays.
 
 TEXT ANALYSIS:
-- When reporting issues, return CHARACTER POSITIONS within the transcript.
-- The "start" value must be the index of the first character of the problematic text.
-- The "end" value must be the index immediately after the final character.
+- When reporting issues, you MUST include:
+  - "quote": copy the EXACT verbatim text being flagged directly from the transcript (word-for-word, no changes)
+  - "start": the character index of the first character of the quote within the transcript
+  - "end": the character index immediately after the last character of the quote
 - Indices are based on the EXACT transcript provided below.
+- The "quote" field is mandatory. It must be a verbatim substring of the transcript.
 
 IMAGE ANALYSIS:
 - You are allowed to flag images that are:
@@ -326,6 +361,7 @@ JSON FORMAT:
     {{
       "id": "ISSUE_1",
       "type": "left | right | fake",
+      "quote": "the exact verbatim text being flagged, copied directly from the transcript",
       "start": number,
       "end": number,
       "explanation": "clear explanation tied to the text span"
