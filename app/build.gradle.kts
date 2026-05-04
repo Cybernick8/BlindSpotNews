@@ -96,5 +96,6 @@ dependencies {
     implementation("com.google.firebase:firebase-firestore")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
     implementation(libs.coil.compose)
+    implementation("com.google.firebase:firebase-storage-ktx")
 
 }

@@ -56,7 +56,6 @@ fun AnalysisScreen(
     }
 
 
-
     val scrollState = rememberScrollState()
 
     var selectedBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
@@ -151,6 +150,8 @@ fun AnalysisScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        val result = viewModel.analysisResult
+
         if (viewModel.isLoading) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
@@ -163,7 +164,7 @@ fun AnalysisScreen(
 
                 CircularProgressIndicator(color = AppColors.text())
             }
-        } else if (viewModel.analyzedText.isNotEmpty() || viewModel.overallAnalysis.isNotEmpty()) {
+        } else if (result != null) {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -177,7 +178,7 @@ fun AnalysisScreen(
                 Column(modifier = Modifier.padding(16.dp)) {
 
                     Text(
-                        text = if (viewModel.analyzedText.isEmpty()) "Unable to Analyze" else "BlindSpot Analysis:",
+                        text = if (result.analyzedText.isEmpty()) "Unable to Analyze" else "BlindSpot Analysis:",
                         color = AppColors.text(),
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
@@ -185,14 +186,14 @@ fun AnalysisScreen(
                     )
 
                     Text(
-                        text = viewModel.overallAnalysis,
+                        text = result.overallAnalysis,
                         color = AppColors.text(),
                         fontStyle = FontStyle.Italic
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    if (viewModel.analyzedText.isNotEmpty()) {
+                    if (result.analyzedText.isNotEmpty()) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -200,12 +201,12 @@ fun AnalysisScreen(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = "Bias Score: ${viewModel.biasRating}",
+                                text = "Bias Score: ${result.biasRating}",
                                 fontWeight = FontWeight.SemiBold
                             )
 
                             Text(
-                                text = "Alignment: ${viewModel.alignment}",
+                                text = "Alignment: ${result.alignment}",
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
@@ -213,7 +214,7 @@ fun AnalysisScreen(
                 }
             }
 
-            if (viewModel.analyzedText.isNotEmpty()) {
+            if (result.analyzedText.isNotEmpty()) {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -233,13 +234,13 @@ fun AnalysisScreen(
                         )
 
                         HighlightedArticleText(
-                            fullText = viewModel.analyzedText,
-                            issues = viewModel.detectedIssues
+                            fullText = result.analyzedText,
+                            issues = result.detectedIssues
                         )
 
                         Spacer(modifier = Modifier.height(24.dp))
 
-                        if (viewModel.imageIssues.isNotEmpty()) {
+                        if (result.imageIssues.isNotEmpty()) {
 
                             Text(
                                 text = "Image Issues:",
@@ -251,12 +252,12 @@ fun AnalysisScreen(
                             LazyRow(
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                items(viewModel.imageIssues) { issue ->
+                                items(result.imageIssues) { issue ->
 
-                                    val frame = viewModel.frames.getOrNull(issue.frameIndex)
+                                    val frame = result.frames.getOrNull(issue.frameIndex)
 
                                     if (frame != null) {
-                                        val bitmap = viewModel.decodeBase64ToBitmap(frame)
+                                        val bitmap = viewModel.decodeBase64ToBitmap(frame.url)
 
                                         Card(
                                             modifier = Modifier.width(250.dp)
@@ -292,59 +293,55 @@ fun AnalysisScreen(
                             }
                         }
 
+                    }
                 }
             }
-        } else {
+
+            if (result.analyzedText.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Button(
+                    onClick = {
+                        analysisViewModel.saveArticleData(
+                            analysis = result
+                        )
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AppColors.buttonBackground(),
+                        contentColor = AppColors.buttonText()
+                    )
+                ) {
+                    Text("Save Analysis")
+                }
+            }
+
+            if (selectedBitmap != null) {
+                Dialog(onDismissRequest = { selectedBitmap = null }) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(androidx.compose.ui.graphics.Color.Black)
+                            .clickable { selectedBitmap = null },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            bitmap = selectedBitmap!!.asImageBitmap(),
+                            contentDescription = "Expanded Image",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
+                        )
+                    }
+                }
+            }
+
+        }
+        else {
             Text(
                 text = "Enter a URL above to receive an analysis",
                 color = AppColors.text(),
                 style = MaterialTheme.typography.titleMedium
             )
         }
-
-        if (viewModel.analyzedText.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Button(
-                onClick = {
-                    analysisViewModel.saveArticleData(
-                        text = viewModel.analyzedText,
-                        overallAnalysis = viewModel.overallAnalysis,
-                        issues = viewModel.detectedIssues,
-                        imageIssues = viewModel.imageIssues,
-                        sourceUrl = viewModel.urlInput,
-                        biasRating = viewModel.biasRating,
-                        alignment = viewModel.alignment
-                    )
-                },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = AppColors.buttonBackground(),
-                    contentColor = AppColors.buttonText()
-                )
-            ) {
-                Text("Save Analysis")
-            }
-        }
-
-        if (selectedBitmap != null) {
-            Dialog(onDismissRequest = { selectedBitmap = null }) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(androidx.compose.ui.graphics.Color.Black)
-                        .clickable { selectedBitmap = null },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Image(
-                        bitmap = selectedBitmap!!.asImageBitmap(),
-                        contentDescription = "Expanded Image",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                    )
-                }
-            }
-        }
-
     }
 }

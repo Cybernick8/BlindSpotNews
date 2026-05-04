@@ -1,6 +1,7 @@
 package com.example.blindspotnews.ui
 
 import androidx.lifecycle.ViewModel
+import com.example.blindspotnews.backend.AnalysisResult
 import com.google.firebase.Firebase
 import com.google.firebase.firestore.firestore
 
@@ -11,19 +12,18 @@ class AnalysisViewModel : ViewModel() {
     private val db = Firebase.firestore
 
     // A function our UI calls when an article is analyzed
-    fun saveArticleData(text: String, overallAnalysis: String, issues: List<BiasIssue>, imageIssues: List<Any>, sourceUrl: String, biasRating: String, alignment: String) {
+    fun saveArticleData(analysis: AnalysisResult) {
 
-        // Maps the data to key-value pairs for Firestore
         val article = hashMapOf(
-            "text" to text,
-            "overallAnalysis" to overallAnalysis,
-            "issues" to issues,
-            "imageIssues" to imageIssues,
-            "source_url" to sourceUrl,
-            "bias_rating" to biasRating,
-            "alignment" to alignment
+            "url" to analysis.url,
+            "text" to analysis.analyzedText,
+            "overallAnalysis" to analysis.overallAnalysis,
+            "biasRating" to analysis.biasRating,
+            "alignment" to analysis.alignment,
+            "issues" to analysis.detectedIssues,
+            "imageIssues" to analysis.imageIssues,
+            "createdAt" to analysis.createdAt
         )
-
         // Send it to the "analyzed_articles" collection
         db.collection("analyzed_articles").add(article)
             .addOnSuccessListener { documentReference ->
