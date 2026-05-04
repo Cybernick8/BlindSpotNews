@@ -37,7 +37,7 @@ class OutputViewModel : ViewModel() {
     var imageIssues by mutableStateOf<List<ImageIssue>>(emptyList())
         private set
 
-    var frames by mutableStateOf<List<String>>(emptyList())
+    var analysisResult by mutableStateOf<AnalysisResult?>(null)
         private set
 
     fun analyze(url: String, isVideo: Boolean){
@@ -46,7 +46,6 @@ class OutputViewModel : ViewModel() {
         analyzedText = "" // Clear old text before new search
         detectedIssues = emptyList() // Clear old highlights before new search
         imageIssues = emptyList()
-        frames = emptyList()
         authenticateAndFetch(url, isVideo)
     }
 
@@ -95,8 +94,7 @@ class OutputViewModel : ViewModel() {
                 // Extract properties safely
                 analyzedText = parsedData["text"] as? String ?: "Error extracting text."
                 overallAnalysis = parsedData["overall_analysis"] as? String ?: "No overall analysis provided."
-                biasRating = (parsedData["bias_score"] as? Double)?.toInt()?.toString()
-                    ?: "No bias rating provided."
+                val biasRating = (parsedData["bias_score"] as? Double)?.toInt() ?: 0
                 alignment = parsedData["alignment"] as? String ?: "No overall analysis provided."
                 val rawIssues = parsedData["issues"] as? List<Map<String, Any>> ?: emptyList()
 
@@ -129,9 +127,22 @@ class OutputViewModel : ViewModel() {
                 }
 
 
-                val framesRaw = parsedData["frames"] as? List<*> ?: emptyList<Any>()
+                val framesRaw = parsedData["frames"] as? List<String> ?: emptyList()
 
-                frames = framesRaw.mapNotNull { it as? String }
+                val frames = framesRaw.mapIndexed { index, base64 ->
+                    FrameData(index, base64)
+                }
+
+                analysisResult = AnalysisResult(
+                    url = url,
+                    isVideo = isVideo,
+                    analyzedText = analyzedText,
+                    biasRating = biasRating,
+                    alignment = alignment,
+                    detectedIssues = detectedIssues,
+                    imageIssues = imageIssues,
+                    frames = frames
+                )
 
 
             } catch (e: Exception) {
@@ -151,3 +162,20 @@ class OutputViewModel : ViewModel() {
         return BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
     }
 }
+
+data class AnalysisResult(
+    val url: String = "",
+    val isVideo: Boolean = false,
+    val analyzedText: String = "",
+    val biasRating: Int = 0,
+    val alignment: String = "",
+    val detectedIssues: List<BiasIssue> = emptyList(),
+    val imageIssues: List<ImageIssue> = emptyList(),
+    val frames: List<FrameData> = emptyList(),
+    val createdAt: Long = System.currentTimeMillis()
+)
+
+data class FrameData(
+    val index: Int = 0,
+    val url: String = ""
+)

@@ -55,6 +55,8 @@ fun AnalysisScreen(
 
     var selectedBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
 
+
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -251,7 +253,12 @@ fun AnalysisScreen(
                                     val bitmap = viewModel.decodeBase64ToBitmap(frame)
 
                                     Card(
-                                        modifier = Modifier.width(250.dp)
+                                        modifier = Modifier.width(250.dp),
+                                        shape = RoundedCornerShape(16.dp),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = AppColors.card()
+                                        )
+
                                     ) {
                                         Column(modifier = Modifier.padding(8.dp)) {
 
@@ -288,7 +295,7 @@ fun AnalysisScreen(
             }
         } else {
             Text(
-                text = "Analysis Result:",
+                text = "",
                 color = AppColors.text(),
                 style = MaterialTheme.typography.titleMedium
             )
