@@ -7,6 +7,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 data class HomeNewsArticle(
     val title: String = "",
@@ -28,6 +31,9 @@ class NewsViewModel : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeNewsUiState())
     val uiState: StateFlow<HomeNewsUiState> = _uiState
+
+    var search by mutableStateOf("")
+    var selectedTopic by mutableStateOf("All")
 
     fun loadNews(topic: String, search: String) {
         viewModelScope.launch {

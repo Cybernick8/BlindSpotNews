@@ -28,6 +28,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseAuth
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 
 @Composable
 fun ScreenOne(
@@ -38,13 +41,10 @@ fun ScreenOne(
     val uiState by viewModel.uiState.collectAsState()
     val userEmail = FirebaseAuth.getInstance().currentUser?.email ?: "Guest"
 
-    var search by remember { mutableStateOf("") }
-    var selectedTopic by remember { mutableStateOf("All") }
-
     val topics = listOf("All", "Business", "International", "Politics", "Tech")
 
     LaunchedEffect(Unit) {
-        viewModel.loadNews(selectedTopic, search)
+        viewModel.loadNews(viewModel.selectedTopic, viewModel.search)
     }
 
     Scaffold(
@@ -107,12 +107,16 @@ fun ScreenOne(
             Spacer(modifier = Modifier.height(16.dp))
 
             OutlinedTextField(
-                value = search,
-                onValueChange = { search = it },
+                value = viewModel.search,
+                onValueChange = { viewModel.search = it },
                 placeholder = { Text("Search news") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 shape = RoundedCornerShape(16.dp),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(
+                    onSearch = { viewModel.loadNews(viewModel.selectedTopic, viewModel.search) }
+                ),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = AppColors.text(),
                     unfocusedBorderColor = AppColors.text(),
@@ -134,10 +138,10 @@ fun ScreenOne(
             ) {
                 topics.forEach { topic ->
                     FilterChip(
-                        selected = selectedTopic == topic,
+                        selected = viewModel.selectedTopic == topic,
                         onClick = {
-                            selectedTopic = topic
-                            viewModel.loadNews(selectedTopic, search)
+                            viewModel.selectedTopic = topic
+                            viewModel.loadNews(viewModel.selectedTopic, viewModel.search)
                         },
                         label = { Text(topic) },
                         colors = FilterChipDefaults.filterChipColors(
@@ -148,7 +152,7 @@ fun ScreenOne(
                         ),
                         border = FilterChipDefaults.filterChipBorder(
                             enabled = true,
-                            selected = selectedTopic == topic,
+                            selected = viewModel.selectedTopic == topic,
                             borderColor = AppColors.text(),
                             selectedBorderColor = AppColors.text()
                         )
@@ -159,7 +163,7 @@ fun ScreenOne(
             Spacer(modifier = Modifier.height(12.dp))
 
             Button(
-                onClick = { viewModel.loadNews(selectedTopic, search) },
+                onClick = { viewModel.loadNews(viewModel.selectedTopic, viewModel.search) },
                 modifier = Modifier
                     .align(Alignment.End)
                     .height(42.dp)

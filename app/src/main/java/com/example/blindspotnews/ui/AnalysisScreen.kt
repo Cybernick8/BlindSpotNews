@@ -23,17 +23,19 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.LaunchedEffect
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.LocalActivity
 
 @Composable
 fun AnalysisScreen(
     navController: NavController,
-    viewModel: OutputViewModel = viewModel(),
     analysisViewModel: AnalysisViewModel = viewModel(),
     autoUrl: String = ""
 ) {
-    var urlInput by remember { mutableStateOf(autoUrl) }
+    val activity = LocalActivity.current as ComponentActivity
+    val viewModel: OutputViewModel = viewModel(activity)
 
-    val isVideo = listOf(
+    val videoPatterns = listOf(
         "youtube.com/watch", "youtube.com/shorts", "youtu.be/",
         "tiktok.com", "vm.tiktok.com",
         "vimeo.com",
@@ -41,11 +43,15 @@ fun AnalysisScreen(
         "instagram.com/reel", "instagram.com/p",
         "facebook.com/watch", "fb.watch",
         "twitter.com/i/status", "x.com/i/status"
-    ).any { urlInput.contains(it) }
+    )
+
+    val isVideo = videoPatterns.any { viewModel.urlInput.contains(it) }
 
     LaunchedEffect(autoUrl) {
-        if (autoUrl.isNotBlank()) {
-            viewModel.analyze(autoUrl, isVideo)
+        if (autoUrl.isNotBlank() && autoUrl != viewModel.urlInput) {
+            val autoIsVideo = videoPatterns.any { autoUrl.contains(it) }
+            viewModel.urlInput = autoUrl
+            viewModel.analyze(autoUrl, autoIsVideo)
         }
     }
 
@@ -104,8 +110,8 @@ fun AnalysisScreen(
         Spacer(modifier = Modifier.height(28.dp))
 
         OutlinedTextField(
-            value = urlInput,
-            onValueChange = { urlInput = it },
+            value = viewModel.urlInput,
+            onValueChange = { viewModel.urlInput = it },
             label = { Text("Enter Article/Video URL") },
             modifier = Modifier.fillMaxWidth(),
             colors = OutlinedTextFieldDefaults.colors(
@@ -127,13 +133,13 @@ fun AnalysisScreen(
         Spacer(modifier = Modifier.height(18.dp))
 
         Button(
-            onClick = { viewModel.analyze(urlInput, isVideo) },
-            enabled = urlInput.isNotBlank(),
+            onClick = { viewModel.analyze(viewModel.urlInput, isVideo) },
+            enabled = viewModel.urlInput.isNotBlank(),
             colors = ButtonDefaults.buttonColors(
                 containerColor = AppColors.buttonBackground(),
                 contentColor = AppColors.buttonText(),
-                disabledContainerColor = AppColors.card(),
-                disabledContentColor = AppColors.text()
+                disabledContainerColor = AppColors.buttonBackground().copy(alpha = 0.4f),
+                disabledContentColor = AppColors.buttonText().copy(alpha = 0.4f)
             )
         ) {
             Text("Analyze Blindspot")
@@ -157,7 +163,7 @@ fun AnalysisScreen(
 
                 CircularProgressIndicator(color = AppColors.text())
             }
-        } else if (viewModel.analyzedText.isNotEmpty()) {
+        } else if (viewModel.analyzedText.isNotEmpty() || viewModel.overallAnalysis.isNotEmpty()) {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -171,7 +177,7 @@ fun AnalysisScreen(
                 Column(modifier = Modifier.padding(16.dp)) {
 
                     Text(
-                        text = "BlindSpot Analysis:",
+                        text = if (viewModel.analyzedText.isEmpty()) "Unable to Analyze" else "BlindSpot Analysis:",
                         color = AppColors.text(),
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
@@ -186,109 +192,112 @@ fun AnalysisScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Bias + Alignment Row
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "Bias Score: ${viewModel.biasRating}",
-                            fontWeight = FontWeight.SemiBold
-                        )
+                    if (viewModel.analyzedText.isNotEmpty()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Bias Score: ${viewModel.biasRating}",
+                                fontWeight = FontWeight.SemiBold
+                            )
 
-                        Text(
-                            text = "Alignment: ${viewModel.alignment}",
-                            fontWeight = FontWeight.SemiBold
-                        )
+                            Text(
+                                text = "Alignment: ${viewModel.alignment}",
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                     }
                 }
             }
 
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = AppColors.card()
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-
-                    Text(
-                        text = if (isVideo) "Video Transcript Analysis:" else "Article Analysis:",
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-
-                    HighlightedArticleText(
-                        fullText = viewModel.analyzedText,
-                        issues = viewModel.detectedIssues
-                    )
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    if (viewModel.imageIssues.isNotEmpty()) {
+            if (viewModel.analyzedText.isNotEmpty()) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = AppColors.card()
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
 
                         Text(
-                            text = "Image Issues:",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp,
+                            text = if (isVideo) "Video Transcript Analysis:" else "Article Analysis:",
+                            style = MaterialTheme.typography.titleMedium,
                             modifier = Modifier.padding(bottom = 8.dp)
                         )
 
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            items(viewModel.imageIssues) { issue ->
+                        HighlightedArticleText(
+                            fullText = viewModel.analyzedText,
+                            issues = viewModel.detectedIssues
+                        )
 
-                                val frame = viewModel.frames.getOrNull(issue.frameIndex)
+                        Spacer(modifier = Modifier.height(24.dp))
 
-                                if (frame != null) {
-                                    val bitmap = viewModel.decodeBase64ToBitmap(frame)
+                        if (viewModel.imageIssues.isNotEmpty()) {
 
-                                    Card(
-                                        modifier = Modifier.width(250.dp)
-                                    ) {
-                                        Column(modifier = Modifier.padding(8.dp)) {
+                            Text(
+                                text = "Image Issues:",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 18.sp,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
 
-                                            Image(
-                                                bitmap = bitmap.asImageBitmap(),
-                                                contentDescription = "Frame",
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .height(150.dp)
-                                                    .clickable {
-                                                        selectedBitmap = bitmap
-                                                    }
-                                            )
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                items(viewModel.imageIssues) { issue ->
 
-                                            Spacer(modifier = Modifier.height(8.dp))
+                                    val frame = viewModel.frames.getOrNull(issue.frameIndex)
 
-                                            Text(
-                                                text = issue.type,
-                                                fontWeight = FontWeight.Bold
-                                            )
+                                    if (frame != null) {
+                                        val bitmap = viewModel.decodeBase64ToBitmap(frame)
 
-                                            Text(
-                                                text = issue.explanation,
-                                                fontSize = 12.sp
-                                            )
+                                        Card(
+                                            modifier = Modifier.width(250.dp)
+                                        ) {
+                                            Column(modifier = Modifier.padding(8.dp)) {
+
+                                                Image(
+                                                    bitmap = bitmap.asImageBitmap(),
+                                                    contentDescription = "Frame",
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .height(150.dp)
+                                                        .clickable {
+                                                            selectedBitmap = bitmap
+                                                        }
+                                                )
+
+                                                Spacer(modifier = Modifier.height(8.dp))
+
+                                                Text(
+                                                    text = issue.type,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+
+                                                Text(
+                                                    text = issue.explanation,
+                                                    fontSize = 12.sp
+                                                )
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
-                    }
 
+                    }
                 }
             }
         } else {
             Text(
-                text = "Analysis Result:",
+                text = "Enter a URL above to receive an analysis",
                 color = AppColors.text(),
                 style = MaterialTheme.typography.titleMedium
             )
@@ -304,7 +313,7 @@ fun AnalysisScreen(
                         overallAnalysis = viewModel.overallAnalysis,
                         issues = viewModel.detectedIssues,
                         imageIssues = viewModel.imageIssues,
-                        sourceUrl = urlInput,
+                        sourceUrl = viewModel.urlInput,
                         biasRating = viewModel.biasRating,
                         alignment = viewModel.alignment
                     )
