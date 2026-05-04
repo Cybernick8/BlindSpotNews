@@ -20,7 +20,9 @@ class OutputViewModel : ViewModel() {
     var outputText by mutableStateOf("Processing...")
         private set
 
-    var overallAnalysis by mutableStateOf("Analyzing article tone...")
+    var overallAnalysis by mutableStateOf("")
+
+    var urlInput by mutableStateOf("")
 
     var biasRating by mutableStateOf("")
         private set
@@ -146,10 +148,9 @@ class OutputViewModel : ViewModel() {
 
 
             } catch (e: Exception) {
-                // --- DEBUGGER ---
-                // If it crashes, print exactly what broke Gson to the screen
                 outputText = "Error: ${e.message}"
-                analyzedText = "GSON crashed. The API returned this instead of valid JSON:\n\n$rawResult"
+                overallAnalysis = "We weren't able to analyze this link. This can happen with paywalled sites, login-protected pages, or unsupported content types. Please try a different URL."
+                analyzedText = ""
                 detectedIssues = emptyList()
             } finally {
                 isLoading = false
