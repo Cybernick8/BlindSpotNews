@@ -25,6 +25,10 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.LaunchedEffect
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.LocalActivity
+import androidx.compose.material3.TopAppBar
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.Image
+import com.example.blindspotnews.R
 
 @Composable
 fun AnalysisScreen(
@@ -61,53 +65,48 @@ fun AnalysisScreen(
 
     var selectedBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(AppColors.background())
-            .padding(16.dp)
-            .verticalScroll(scrollState),
-        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+
+        // 👇 BACKGROUND LOGO
+        Image(
+            painter = painterResource(id = R.drawable.blindspotnews_transparent),
+            contentDescription = null,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(40.dp),
+            alpha = 0.08f // 👈 adjust transparency here
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+                .verticalScroll(scrollState),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Button(
-                onClick = { navController.navigate("screen_one") },
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = AppColors.buttonBackground(),
-                    contentColor = AppColors.buttonText()
-                )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                horizontalArrangement = Arrangement.Start
             ) {
-                Text("Home")
+                Image(
+                    painter = painterResource(id = R.drawable.blindspotnews_transparent),
+                    contentDescription = "Home",
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clickable {
+                            navController.navigate("screen_one")
+                        }
+                )
             }
 
-            Button(
-                onClick = { navController.navigate("screen_two") },
-                modifier = Modifier.weight(1.7f),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = AppColors.buttonBackground(),
-                    contentColor = AppColors.buttonText()
-                )
-            ) {
-                Text("Text & Video Upload")
-            }
+            Spacer(modifier = Modifier.height(10.dp))
 
-            Button(
-                onClick = { navController.navigate("screen_output") },
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = AppColors.buttonBackground(),
-                    contentColor = AppColors.buttonText()
-                )
-            ) {
-                Text("Output")
-            }
-        }
-
-        Spacer(modifier = Modifier.height(28.dp))
 
         OutlinedTextField(
             value = viewModel.urlInput,
@@ -317,6 +316,8 @@ fun AnalysisScreen(
                         biasRating = viewModel.biasRating,
                         alignment = viewModel.alignment
                     )
+
+                    navController.navigate("screen_output")
                 },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = AppColors.buttonBackground(),
@@ -347,5 +348,6 @@ fun AnalysisScreen(
             }
         }
 
+    }
     }
 }

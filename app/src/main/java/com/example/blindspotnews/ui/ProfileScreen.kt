@@ -62,33 +62,12 @@ fun ProfileScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            ProfileOptionButton("History of Past Custom\nArticles Analyzed") {
-                // later: open history
+            ProfileOptionButton("Saved Article Analyses") {
+                navController.navigate("screen_output")
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(84.dp))
 
-            ProfileOptionButton("Topic Preferences") {
-                // later: open topic preferences
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            ProfileOptionButton("Blocked Article?") {
-                // later: open blocked articles
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            ProfileOptionButton("Personalization Tab?") {
-                // later: open personalization
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            ProfileOptionButton("Recently Viewed") {
-                // later: open recently viewed
-            }
 
             Spacer(modifier = Modifier.weight(1f))
 
@@ -117,11 +96,11 @@ fun ProfileOptionButton(
         modifier = Modifier
             .fillMaxWidth(0.95f)
             .height(72.dp),
-        border = BorderStroke(2.dp, AppColors.text()),
+        border = BorderStroke(2.dp, AppColors.buttonBackground()),
 
         colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = AppColors.card(),
-            contentColor = AppColors.text()
+            containerColor = AppColors.buttonBackground(),
+            contentColor = AppColors.buttonText()
         )
     ) {
         Text(
@@ -131,7 +110,7 @@ fun ProfileOptionButton(
             lineHeight = 22.sp,
             fontWeight = FontWeight.Bold,
             fontFamily = FontFamily.Monospace,
-            color = AppColors.text()
+            color = AppColors.buttonText()
         )
     }
 }
