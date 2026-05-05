@@ -48,16 +48,7 @@ fun ScreenOne(
     }
 
     Scaffold(
-        containerColor = AppColors.background(),
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { navController.navigate("analysis_test") },
-                containerColor = AppColors.buttonBackground(),
-                contentColor = AppColors.buttonText()
-            ) {
-                Text("+", fontWeight = FontWeight.Bold)
-            }
-        }
+        containerColor = AppColors.background()
     ) { padding ->
         Column(
             modifier = Modifier
@@ -70,13 +61,11 @@ fun ScreenOne(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Spacer(modifier = Modifier.width(48.dp))
-
                 Text(
                     text = "Home",
                     modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                    textAlign = TextAlign.Center,
+                    textAlign = TextAlign.Start,
                     color = AppColors.text()
                 )
 
@@ -162,20 +151,36 @@ fun ScreenOne(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            Button(
-                onClick = { viewModel.loadNews(viewModel.selectedTopic, viewModel.search) },
-                modifier = Modifier
-                    .align(Alignment.End)
-                    .height(42.dp)
-                    .width(58.dp),
-                shape = CircleShape,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = AppColors.buttonBackground(),
-                    contentColor = AppColors.buttonText()
-                ),
-                contentPadding = PaddingValues(0.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("↻", style = MaterialTheme.typography.titleLarge)
+                Button(
+                    onClick = { navController.navigate("analysis_test") },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AppColors.buttonBackground(),
+                        contentColor = AppColors.buttonText()
+                    )
+                ) {
+                    Text("Analyze an Article or Video")
+                }
+
+                Button(
+                    onClick = { viewModel.loadNews(viewModel.selectedTopic, viewModel.search) },
+                    modifier = Modifier
+                        .height(42.dp)
+                        .width(58.dp),
+                    shape = CircleShape,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AppColors.buttonBackground(),
+                        contentColor = AppColors.buttonText()
+                    ),
+                    contentPadding = PaddingValues(0.dp)
+                ) {
+                    Text("↻", style = MaterialTheme.typography.titleLarge)
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
