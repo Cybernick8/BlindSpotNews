@@ -32,7 +32,7 @@ fun ScreenOutput(
         Spacer(modifier = Modifier.height(12.dp))
 
         Text(
-            text = "Output",
+            text = "Saved Article Analyses",
             style = MaterialTheme.typography.headlineMedium,
             color = AppColors.text(),
             modifier = Modifier.padding(bottom = 24.dp)

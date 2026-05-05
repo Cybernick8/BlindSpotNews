@@ -12,7 +12,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.blindspotnews.ui.ScreenOne
 import com.example.blindspotnews.ui.ScreenOutput
-import com.example.blindspotnews.ui.ScreenTwo
 import com.example.blindspotnews.ui.ProfileScreen
 import com.google.firebase.FirebaseApp
 import com.example.blindspotnews.ui.AnalysisScreen
@@ -84,7 +83,6 @@ fun AppNavigation(sharedUrl: String = "") {
         }
 
         composable("screen_one") { ScreenOne(navController) }
-        composable("screen_two") { ScreenTwo(navController) }
         composable("screen_output") { ScreenOutput(navController) }
         composable("profile") { ProfileScreen(navController) }
     }
