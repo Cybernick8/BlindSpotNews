@@ -23,6 +23,9 @@ import sys
 import io
 import trafilatura
 
+# Firebase check
+from firebase_admin import firestore
+
 initialize_app()
 
 executor = ThreadPoolExecutor()
@@ -73,6 +76,37 @@ def analyze_url(req: https_fn.CallableRequest):
 
     data = req.data or {}
     url = str(data.get("url", "")).strip()
+
+    db = firestore.client()
+    # ///////////////////////////////
+    # Check if article already exists
+    existing = (
+        db.collection("analyzed_articles")
+        .where("url", "==", url)
+        .limit(1)
+        .stream()
+    )
+
+    existing_doc = next(existing, None)
+
+    if existing_doc:
+        print("[CACHE HIT] Returning stored analysis")
+
+        doc_data = existing_doc.to_dict()
+
+        return {
+            "text": doc_data.get("text", ""),
+            "issues": doc_data.get("issues", []),
+            "image_issues": doc_data.get("imageIssues", []),
+            "frames": [
+                f["url"] for f in doc_data.get("frames", [])
+            ],
+            "overall_analysis": doc_data.get("overallAnalysis", ""),
+            "bias_score": doc_data.get("biasRating", 0),
+            "alignment": doc_data.get("alignment", "Center")
+        }
+    # ///////////////////////////////
+
     is_video = bool(data.get("isVideo", False))
 
     if not url:

@@ -25,6 +25,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.LaunchedEffect
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.LocalActivity
+import coil.compose.AsyncImage
 
 @Composable
 fun AnalysisScreen(
@@ -59,6 +60,18 @@ fun AnalysisScreen(
     val scrollState = rememberScrollState()
 
     var selectedBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+
+    var selectedImageUrl by remember { mutableStateOf<String?>(null) }
+
+    if (selectedImageUrl != null) {
+        Dialog(onDismissRequest = { selectedImageUrl = null }) {
+            AsyncImage(
+                model = selectedImageUrl,
+                contentDescription = "Full Image",
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -256,24 +269,43 @@ fun AnalysisScreen(
 
                                     val frame = result.frames.getOrNull(issue.frameIndex)
 
+
+
                                     if (frame != null) {
-                                        val bitmap = viewModel.decodeBase64ToBitmap(frame.url)
 
                                         Card(
                                             modifier = Modifier.width(250.dp)
                                         ) {
                                             Column(modifier = Modifier.padding(8.dp)) {
+                                                val data = frame.url
 
-                                                Image(
-                                                    bitmap = bitmap.asImageBitmap(),
-                                                    contentDescription = "Frame",
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .height(150.dp)
-                                                        .clickable {
-                                                            selectedBitmap = bitmap
-                                                        }
-                                                )
+                                                if (viewModel.isBase64(data)) {
+                                                    val bitmap = viewModel.decodeToBitmap(data)
+
+                                                    if (bitmap != null) {
+                                                        Image(
+                                                            bitmap = bitmap.asImageBitmap(),
+                                                            contentDescription = "Frame",
+                                                            modifier = Modifier
+                                                                .fillMaxWidth()
+                                                                .height(150.dp)
+                                                                .clickable {
+                                                                    selectedImageUrl = data
+                                                                }
+                                                        )
+                                                    }
+                                                } else {
+                                                    AsyncImage(
+                                                        model = data,
+                                                        contentDescription = "Frame",
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .height(150.dp)
+                                                            .clickable {
+                                                                selectedImageUrl = data
+                                                            }
+                                                    )
+                                                }
 
                                                 Spacer(modifier = Modifier.height(8.dp))
 
