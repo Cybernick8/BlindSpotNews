@@ -31,6 +31,9 @@ import com.google.firebase.auth.FirebaseAuth
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.Image
+import com.example.blindspotnews.R
 
 @Composable
 fun ScreenOne(
@@ -61,6 +64,15 @@ fun ScreenOne(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+
+                Image(
+                    painter = painterResource(id = R.drawable.blindspotnews_transparent),
+                    contentDescription = "Logo",
+                    modifier = Modifier
+                        .size(70.dp)
+                        .padding(start = 2.dp, end = 8.dp)
+                )
+
                 Text(
                     text = "Home",
                     modifier = Modifier.weight(1f),

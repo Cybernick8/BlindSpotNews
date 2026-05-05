@@ -693,7 +693,7 @@ def get_home_news(req: https_fn.CallableRequest):
                     "q": search,
                     "language": "en",
                     "sortBy": "publishedAt",
-                    "pageSize": 10
+                    "pageSize": 20
                 },
                 timeout=20
             )
@@ -704,7 +704,7 @@ def get_home_news(req: https_fn.CallableRequest):
                 params={
                     "country": "us",
                     "category": "business",
-                    "pageSize": 10
+                    "pageSize": 20
                 },
                 timeout=20
             )
@@ -715,7 +715,7 @@ def get_home_news(req: https_fn.CallableRequest):
                 params={
                     "country": "us",
                     "category": "technology",
-                    "pageSize": 10
+                    "pageSize": 20
                 },
                 timeout=20
             )
@@ -727,7 +727,7 @@ def get_home_news(req: https_fn.CallableRequest):
                     "q": "international OR world news",
                     "language": "en",
                     "sortBy": "publishedAt",
-                    "pageSize": 10
+                    "pageSize": 20
                 },
                 timeout=20
             )
@@ -739,7 +739,7 @@ def get_home_news(req: https_fn.CallableRequest):
                     "q": "politics OR government OR election",
                     "language": "en",
                     "sortBy": "publishedAt",
-                    "pageSize": 10
+                    "pageSize": 20
                 },
                 timeout=20
             )
@@ -749,7 +749,7 @@ def get_home_news(req: https_fn.CallableRequest):
                 headers=headers,
                 params={
                     "country": "us",
-                    "pageSize": 10
+                    "pageSize": 20
                 },
                 timeout=20
             )

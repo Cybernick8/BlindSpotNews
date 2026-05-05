@@ -15,6 +15,9 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.google.firebase.auth.FirebaseAuth
 import android.net.Uri
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.Image
+import com.example.blindspotnews.R
 
 @Composable
 fun LoginScreen(navController: NavController, sharedUrl: String = "") {
@@ -50,6 +53,16 @@ fun LoginScreen(navController: NavController, sharedUrl: String = "") {
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+
+            Image(
+                painter = painterResource(id = R.drawable.blindspotnews_transparent),
+                contentDescription = "App Logo",
+                modifier = Modifier
+                    .size(140.dp)
+                    .padding(start = 10.dp)
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
 
             Text(
                 text = "BlindSpotNews",
@@ -138,7 +151,7 @@ fun LoginScreen(navController: NavController, sharedUrl: String = "") {
                         }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Black)
             ) {
                 Text("Create Account", color = Color.White)
             }
