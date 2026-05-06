@@ -47,7 +47,7 @@ fun ScreenOne(
     val topics = listOf("All", "Business", "International", "Politics", "Tech")
 
     LaunchedEffect(Unit) {
-        viewModel.loadNews(viewModel.selectedTopic, viewModel.search)
+        viewModel.loadNews(viewModel.selectedTopic, viewModel.search, reset = true)
     }
 
     Scaffold(
@@ -116,7 +116,7 @@ fun ScreenOne(
                 shape = RoundedCornerShape(16.dp),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(
-                    onSearch = { viewModel.loadNews(viewModel.selectedTopic, viewModel.search) }
+                    onSearch = { viewModel.loadNews(viewModel.selectedTopic, viewModel.search, reset = true) }
                 ),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = AppColors.text(),
@@ -142,7 +142,7 @@ fun ScreenOne(
                         selected = viewModel.selectedTopic == topic,
                         onClick = {
                             viewModel.selectedTopic = topic
-                            viewModel.loadNews(viewModel.selectedTopic, viewModel.search)
+                            viewModel.loadNews(viewModel.selectedTopic, viewModel.search, reset = true)
                         },
                         label = { Text(topic) },
                         colors = FilterChipDefaults.filterChipColors(
@@ -229,6 +229,25 @@ fun ScreenOne(
                                     }
                                 }
                             )
+                        }
+
+                        if (uiState.hasMore) {
+                            item {
+                                LaunchedEffect(uiState.articles.size) {
+                                    if (uiState.articles.isNotEmpty() && !uiState.isLoadingMore) {
+                                        viewModel.loadMoreNews()
+                                    }
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator(color = AppColors.text())
+                                }
+                            }
                         }
                     }
                 }
