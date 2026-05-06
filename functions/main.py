@@ -169,6 +169,8 @@ def analyze_url(req: https_fn.CallableRequest):
                 text = "There seems to be an issue with analyzing this link. Please try again or use a different link."
 
         else:
+
+            print("[ARTICLE] Starting fetch")
             r = requests.get(url, timeout=30,
             headers={
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -177,11 +179,22 @@ def analyze_url(req: https_fn.CallableRequest):
                 "Accept-Encoding": "gzip, deflate, br",
                 "Connection": "keep-alive",
             })
+            print("[ARTICLE] Fetch complete")
+            print("[ARTICLE] Status:", r.status_code)
+            print("[ARTICLE] Final URL:", r.url)
+            print("[ARTICLE] Content-Type:", r.headers.get("content-type"))
+            print("[ARTICLE] Length:", len(r.text))
+
+            print("[ARTICLE] Starting extraction")
 
             if r.status_code >= 400 or not r.text:
                 raise Exception(f"Article fetch HTTP {r.status_code}")
 
             text = extract_text_from_html(r.text)
+
+            print("[ARTICLE] Extraction complete")
+            print("[ARTICLE] Extracted length:", len(text))
+
             encoded_frames = []
 
         print("Encoded frames:", len(encoded_frames))
@@ -443,7 +456,10 @@ Transcript:
 
 def extract_text_from_html(html: str) -> str:
     result = trafilatura.extract(html, include_comments=False, include_tables=False)
-    return result or ""
+    if result:
+            return result
+    print("[SCRAPE] trafilatura failed, defaulting to BS")
+    soup = BeautifulSoup(html, "html.parser")
 
     for tag in soup(["script", "style", "nav", "footer", "header", "iframe", "form", "input",
                      "button", "canvas", "svg", "video", "audio", "link", "meta", "noscript"]):
