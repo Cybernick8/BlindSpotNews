@@ -696,6 +696,10 @@ def get_home_news(req: https_fn.CallableRequest):
     topic = str(data.get("topic", "All")).strip()
     search = str(data.get("search", "")).strip()
 
+    # Pagination
+    page = int(data.get("page", 1))
+    page_size = 20
+
     headers = {
         "X-Api-Key": NEWS_API_KEY.value
     }
@@ -709,10 +713,12 @@ def get_home_news(req: https_fn.CallableRequest):
                     "q": search,
                     "language": "en",
                     "sortBy": "publishedAt",
-                    "pageSize": 20
+                    "pageSize": page_size,
+                    "page": page
                 },
                 timeout=20
             )
+
         elif topic == "Business":
             response = requests.get(
                 "https://newsapi.org/v2/top-headlines",
@@ -720,10 +726,12 @@ def get_home_news(req: https_fn.CallableRequest):
                 params={
                     "country": "us",
                     "category": "business",
-                    "pageSize": 20
+                    "pageSize": page_size,
+                    "page": page
                 },
                 timeout=20
             )
+
         elif topic == "Tech":
             response = requests.get(
                 "https://newsapi.org/v2/top-headlines",
@@ -731,10 +739,12 @@ def get_home_news(req: https_fn.CallableRequest):
                 params={
                     "country": "us",
                     "category": "technology",
-                    "pageSize": 20
+                    "pageSize": page_size,
+                    "page": page
                 },
                 timeout=20
             )
+
         elif topic == "International":
             response = requests.get(
                 "https://newsapi.org/v2/everything",
@@ -743,10 +753,12 @@ def get_home_news(req: https_fn.CallableRequest):
                     "q": "international OR world news",
                     "language": "en",
                     "sortBy": "publishedAt",
-                    "pageSize": 20
+                    "pageSize": page_size,
+                    "page": page
                 },
                 timeout=20
             )
+
         elif topic == "Politics":
             response = requests.get(
                 "https://newsapi.org/v2/everything",
@@ -755,17 +767,20 @@ def get_home_news(req: https_fn.CallableRequest):
                     "q": "politics OR government OR election",
                     "language": "en",
                     "sortBy": "publishedAt",
-                    "pageSize": 20
+                    "pageSize": page_size,
+                    "page": page
                 },
                 timeout=20
             )
+
         else:
             response = requests.get(
                 "https://newsapi.org/v2/top-headlines",
                 headers=headers,
                 params={
                     "country": "us",
-                    "pageSize": 20
+                    "pageSize": page_size,
+                    "page": page
                 },
                 timeout=20
             )
@@ -784,7 +799,12 @@ def get_home_news(req: https_fn.CallableRequest):
                 "source": (article.get("source") or {}).get("name") or "Unknown"
             })
 
-        return {"articles": articles}
+        return {
+            "articles": articles,
+            "totalResults": payload.get("totalResults", 0),
+            "page": page,
+            "pageSize": page_size
+        }
 
     except Exception as e:
         raise https_fn.HttpsError(
