@@ -10,6 +10,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 
 data class BiasIssue(
     val type: String, // "left", "right", "fake"
@@ -96,8 +98,15 @@ fun HighlightedArticleText(
             textContentColor = AppColors.text(),
             title = {
                 Text(
-                    text = "Flagged: ${issue.type.uppercase()}",
-                    color = AppColors.text()
+                    text = when (issue.type.lowercase()) {
+                        "fake" -> "Possible misinformation"
+                        "left" -> "Left-leaning framing"
+                        "right" -> "Right-leaning framing"
+                        else -> "Flagged: ${issue.type.uppercase()}"
+                    },
+                    color = AppColors.text(),
+                    fontWeight = FontWeight.Bold,
+                    textDecoration = TextDecoration.Underline
                 )
             },
             text = {

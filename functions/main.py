@@ -34,6 +34,7 @@ OPENAI_API_KEY = SecretParam("OPENAI_API_KEY")
 SUPADATA_API_KEY = SecretParam("SUPADATA_API_KEY")
 NEWS_API_KEY = SecretParam("NEWS_API_KEY")
 HF_TOKEN = SecretParam("HF_TOKEN")
+DIFFBOT_TOKEN = SecretParam("DIFFBOT_TOKEN")
 
 SYSTEM_PROMPT = """
 You are a fact and bias checking assistant for articles and transcripts.
@@ -61,7 +62,7 @@ Do NOT nitpick standard journalistic terminology. Do NOT force findings. Only fl
 # for article:
 #   grab html, filter out unnecessary tags, and upload to openai
 @https_fn.on_call(
-    secrets=[OPENAI_API_KEY, SUPADATA_API_KEY, NEWS_API_KEY, HF_TOKEN],
+    secrets=[OPENAI_API_KEY, SUPADATA_API_KEY, NEWS_API_KEY, HF_TOKEN, DIFFBOT_TOKEN],
     memory=4096
 )
 def analyze_url(req: https_fn.CallableRequest):
@@ -170,30 +171,50 @@ def analyze_url(req: https_fn.CallableRequest):
 
         else:
 
-            print("[ARTICLE] Starting fetch")
-            r = requests.get(url, timeout=30,
-            headers={
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                "Accept-Language": "en-US,en;q=0.5",
-                "Accept-Encoding": "gzip, deflate, br",
-                "Connection": "keep-alive",
-            })
-            print("[ARTICLE] Fetch complete")
-            print("[ARTICLE] Status:", r.status_code)
-            print("[ARTICLE] Final URL:", r.url)
-            print("[ARTICLE] Content-Type:", r.headers.get("content-type"))
-            print("[ARTICLE] Length:", len(r.text))
+            print("[ARTICLE] Trying Diffbot first")
+            text = fetch_article_with_diffbot(url, DIFFBOT_TOKEN.value)
 
-            print("[ARTICLE] Starting extraction")
+            PAYWALL_THRESHOLD = 300
 
-            if r.status_code >= 400 or not r.text:
-                raise Exception(f"Article fetch HTTP {r.status_code}")
+            # Diffbot returned a snippet — almost always a paywall. Don't bother
+            # with the fallback (it'll hit the same wall), short-circuit with a
+            # friendly message.
+            if text and len(text) < PAYWALL_THRESHOLD:
+                print(f"[ARTICLE] Suspected paywall (Diffbot returned {len(text)} chars)")
+                return {
+                    "text": "",
+                    "issues": [],
+                    "image_issues": [],
+                    "frames": [],
+                    "overall_analysis": (
+                        "This article appears to be behind a paywall, so we couldn't read the full text. "
+                        "Try a free article from this source, or use a different outlet."
+                    ),
+                    "bias_score": 0,
+                    "alignment": "Center",
+                }
 
-            text = extract_text_from_html(r.text)
+            # Diffbot returned nothing at all — try the direct fetch fallback.
+            if not text:
+                print("[ARTICLE] Diffbot returned nothing, falling back to direct fetch")
+                r = requests.get(url, timeout=15,
+                headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                    "Accept-Language": "en-US,en;q=0.5",
+                    "Accept-Encoding": "gzip, deflate, br",
+                    "Connection": "keep-alive",
+                })
+                print("[ARTICLE] Fetch complete")
+                print("[ARTICLE] Status:", r.status_code)
+                print("[ARTICLE] Final URL:", r.url)
+                print("[ARTICLE] Length:", len(r.text))
 
-            print("[ARTICLE] Extraction complete")
-            print("[ARTICLE] Extracted length:", len(text))
+                if r.status_code >= 400 or not r.text:
+                    raise Exception(f"Article fetch HTTP {r.status_code}")
+
+                text = extract_text_from_html(r.text)
+                print("[ARTICLE] Extracted length:", len(text))
 
             encoded_frames = []
 
@@ -451,10 +472,134 @@ Transcript:
 {text}
 """.strip()
 
+# Helper function for Diffbot
+def fetch_article_with_diffbot(url: str, token: str) -> str | None:
+    try:
+        r = requests.get(
+            "https://api.diffbot.com/v3/article",
+            params={"token": token, "url": url},
+            timeout=30,
+        )
+        if r.status_code >= 400:
+            print("[DIFFBOT] HTTP", r.status_code, r.text[:200])
+            return None
+
+        data = r.json()
+        if data.get("errorCode"):
+            print("[DIFFBOT] Error:", data.get("error"))
+            return None
+
+        objects = data.get("objects", [])
+        if not objects:
+            print("[DIFFBOT] No objects returned")
+            return None
+
+        text = (objects[0].get("text") or "").strip()
+        if not text:
+            print("[DIFFBOT] Empty text")
+            return None
+
+        print("[DIFFBOT] Extracted length:", len(text))
+        return text
+
+    except Exception as e:
+        print("[DIFFBOT] Exception:", repr(e))
+        return None
 
 # using bs to filter out unrelated tags from our html response
 
+def _extract_from_jsonld(html: str) -> str | None:
+    # schema.org NewsArticle / Article / BlogPosting commonly embedded in
+    # <script type="application/ld+json"> for SEO. The articleBody field
+    # holds the full text on most modern news sites.
+    try:
+        soup = BeautifulSoup(html, "html.parser")
+    except Exception:
+        return None
+
+    for script in soup.find_all("script", type="application/ld+json"):
+        raw = script.string or script.get_text() or ""
+        if not raw.strip():
+            continue
+        try:
+            payload = json.loads(raw)
+        except Exception:
+            continue
+
+        candidates = []
+        if isinstance(payload, list):
+            candidates.extend(payload)
+        elif isinstance(payload, dict):
+            candidates.append(payload)
+            graph = payload.get("@graph")
+            if isinstance(graph, list):
+                candidates.extend(graph)
+
+        for obj in candidates:
+            if not isinstance(obj, dict):
+                continue
+            type_field = obj.get("@type", "")
+            types = type_field if isinstance(type_field, list) else [type_field]
+            if any(t in ("NewsArticle", "Article", "BlogPosting", "Report", "ReportageNewsArticle") for t in types):
+                body = obj.get("articleBody")
+                if isinstance(body, str) and body.strip():
+                    return body.strip()
+    return None
+
+
+def _extract_from_nextdata(html: str) -> str | None:
+    # Next.js apps embed full page state in <script id="__NEXT_DATA__">.
+    # Article body lives at site-specific paths, so do a recursive hunt
+    # for likely body fields with substantial text.
+    try:
+        soup = BeautifulSoup(html, "html.parser")
+        script = soup.find("script", id="__NEXT_DATA__")
+        if not script:
+            return None
+        raw = script.string or script.get_text() or ""
+        if not raw.strip():
+            return None
+        payload = json.loads(raw)
+    except Exception:
+        return None
+
+    candidates = []
+
+    def walk(node):
+        if isinstance(node, dict):
+            for key, val in node.items():
+                if key in ("articleBody", "body", "content", "bodyHtml") and isinstance(val, str) and len(val) > 500:
+                    candidates.append(val)
+                else:
+                    walk(val)
+        elif isinstance(node, list):
+            for item in node:
+                walk(item)
+
+    walk(payload)
+    if not candidates:
+        return None
+
+    best = max(candidates, key=len)
+    if "<" in best and ">" in best:
+        try:
+            best = BeautifulSoup(best, "html.parser").get_text("\n\n", strip=True)
+        except Exception:
+            pass
+    return best.strip() or None
+
+
 def extract_text_from_html(html: str) -> str:
+    jsonld_text = _extract_from_jsonld(html)
+    if jsonld_text and len(jsonld_text) > 300:
+        print(f"[SCRAPE] JSON-LD extraction succeeded: {len(jsonld_text)} chars")
+        return jsonld_text
+
+    nextdata_text = _extract_from_nextdata(html)
+    if nextdata_text and len(nextdata_text) > 300:
+        print(f"[SCRAPE] __NEXT_DATA__ extraction succeeded: {len(nextdata_text)} chars")
+        return nextdata_text
+
     result = trafilatura.extract(html, include_comments=False, include_tables=False)
     if result:
             return result
@@ -681,6 +826,32 @@ def get_clip(hf_token):
     return clip_model, clip_processor
 # firebase deploy --only functions
 
+
+BLOCKED_HOSTS = {
+    # Hard paywalls
+    "wsj.com", "ft.com", "theinformation.com", "bloomberg.com", "barrons.com",
+    # Metered paywalls
+    "nytimes.com", "washingtonpost.com", "theatlantic.com", "newyorker.com",
+    "economist.com", "latimes.com", "bostonglobe.com", "wired.com",
+    "businessinsider.com", "thetimes.co.uk",
+    # Heavy bot protection
+    "forbes.com", "msn.com",
+    # Vox Media properties — heavy React rendering, both Diffbot and our fallback fail
+    "vulture.com", "theverge.com", "nymag.com", "eater.com",
+    "polygon.com", "sbnation.com",
+}
+
+def _is_blocked_host(url: str) -> bool:
+    from urllib.parse import urlparse
+    try:
+        host = (urlparse(url).hostname or "").lower()
+    except Exception:
+        return False
+    if host.startswith("www."):
+        host = host[4:]
+    return any(host == b or host.endswith("." + b) for b in BLOCKED_HOSTS)
+
+
 @https_fn.on_call(
     secrets=[NEWS_API_KEY],
     memory=512
@@ -792,10 +963,13 @@ def get_home_news(req: https_fn.CallableRequest):
 
         articles = []
         for article in payload.get("articles", []):
+            url_value = article.get("url") or ""
+            if _is_blocked_host(url_value):
+                continue
             articles.append({
                 "title": article.get("title") or "Untitled",
                 "imageUrl": article.get("urlToImage") or "",
-                "url": article.get("url") or "",
+                "url": url_value,
                 "source": (article.get("source") or {}).get("name") or "Unknown"
             })
 
