@@ -169,11 +169,16 @@ class OutputViewModel : ViewModel() {
 
             } catch (e: Exception) {
                 outputText = "Error: ${e.message}"
-                overallAnalysis = "We weren't able to analyze this link..."
+                overallAnalysis = "We weren't able to analyze this link. Please try a different source."
                 analyzedText = ""
                 detectedIssues = emptyList()
                 imageIssues = emptyList()
-                analysisResult = null
+                analysisResult = AnalysisResult(
+                    url = url,
+                    isVideo = isVideo,
+                    analyzedText = "",
+                    overallAnalysis = overallAnalysis
+                )
             } finally {
                 isLoading = false
             }
