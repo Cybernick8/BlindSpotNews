@@ -329,7 +329,7 @@ fun AnalysisScreen(
                     }
                 }
 
-                if (result.analyzedText.isNotEmpty()) {
+               /* if (result.analyzedText.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Button(
@@ -345,7 +345,7 @@ fun AnalysisScreen(
                     ) {
                         Text("Save Analysis")
                     }
-                }
+                } */
 
                 if (selectedBitmap != null) {
                     Dialog(onDismissRequest = { selectedBitmap = null }) {
