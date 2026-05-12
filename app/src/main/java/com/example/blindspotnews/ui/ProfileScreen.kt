@@ -62,9 +62,6 @@ fun ProfileScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.height(12.dp))
 
-           /* ProfileOptionButton("Saved Article Analyses") {
-                navController.navigate("screen_output")
-            } */
 
             Spacer(modifier = Modifier.height(84.dp))
 
