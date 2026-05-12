@@ -329,24 +329,6 @@ fun AnalysisScreen(
                     }
                 }
 
-                if (result.analyzedText.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Button(
-                        onClick = {
-                            analysisViewModel.saveArticleData(
-                                analysis = result
-                            )
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = AppColors.buttonBackground(),
-                            contentColor = AppColors.buttonText()
-                        )
-                    ) {
-                        Text("Save Analysis")
-                    }
-                }
-
                 if (selectedBitmap != null) {
                     Dialog(onDismissRequest = { selectedBitmap = null }) {
                         Box(
