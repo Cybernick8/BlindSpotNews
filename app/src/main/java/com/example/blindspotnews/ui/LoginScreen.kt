@@ -14,9 +14,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.google.firebase.auth.FirebaseAuth
+import android.net.Uri
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.Image
+import com.example.blindspotnews.R
 
 @Composable
-fun LoginScreen(navController: NavController) {
+fun LoginScreen(navController: NavController, sharedUrl: String = "") {
     val auth = FirebaseAuth.getInstance()
 
     var email by remember { mutableStateOf("") }
@@ -27,7 +31,11 @@ fun LoginScreen(navController: NavController) {
     // Skip login if already signed in
     LaunchedEffect(Unit) {
         if (auth.currentUser != null) {
-            navController.navigate("screen_one") {
+            val destination = if (sharedUrl.isNotBlank())
+                "analysis_test?url=${Uri.encode(sharedUrl)}"
+            else
+                "screen_one"
+            navController.navigate(destination) {
                 popUpTo("login") { inclusive = true }
             }
         }
@@ -45,6 +53,16 @@ fun LoginScreen(navController: NavController) {
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+
+            Image(
+                painter = painterResource(id = R.drawable.blindspotnews_transparent),
+                contentDescription = "App Logo",
+                modifier = Modifier
+                    .size(140.dp)
+                    .padding(start = 10.dp)
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
 
             Text(
                 text = "BlindSpotNews",
@@ -87,7 +105,11 @@ fun LoginScreen(navController: NavController) {
                         .addOnCompleteListener { task ->
                             loading = false
                             if (task.isSuccessful) {
-                                navController.navigate("screen_one") {
+                                val destination = if (sharedUrl.isNotBlank())
+                                    "analysis_test?url=${Uri.encode(sharedUrl)}"
+                                else
+                                    "screen_one"
+                                navController.navigate(destination) {
                                     popUpTo("login") { inclusive = true }
                                 }
                             } else {
@@ -116,7 +138,11 @@ fun LoginScreen(navController: NavController) {
                         .addOnCompleteListener { task ->
                             loading = false
                             if (task.isSuccessful) {
-                                navController.navigate("screen_one") {
+                                val destination = if (sharedUrl.isNotBlank())
+                                    "analysis_test?url=${Uri.encode(sharedUrl)}"
+                                else
+                                    "screen_one"
+                                navController.navigate(destination) {
                                     popUpTo("login") { inclusive = true }
                                 }
                             } else {
@@ -125,7 +151,7 @@ fun LoginScreen(navController: NavController) {
                         }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Black)
             ) {
                 Text("Create Account", color = Color.White)
             }

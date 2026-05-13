@@ -19,6 +19,12 @@ import time
 import uuid
 import yt_dlp
 import cv2
+import sys
+import io
+import trafilatura
+
+# Firebase check
+from firebase_admin import firestore
 
 initialize_app()
 
@@ -28,6 +34,7 @@ OPENAI_API_KEY = SecretParam("OPENAI_API_KEY")
 SUPADATA_API_KEY = SecretParam("SUPADATA_API_KEY")
 NEWS_API_KEY = SecretParam("NEWS_API_KEY")
 HF_TOKEN = SecretParam("HF_TOKEN")
+DIFFBOT_TOKEN = SecretParam("DIFFBOT_TOKEN")
 
 SYSTEM_PROMPT = """
 You are a fact and bias checking assistant for articles and transcripts.
@@ -55,7 +62,7 @@ Do NOT nitpick standard journalistic terminology. Do NOT force findings. Only fl
 # for article:
 #   grab html, filter out unnecessary tags, and upload to openai
 @https_fn.on_call(
-    secrets=[OPENAI_API_KEY, SUPADATA_API_KEY, NEWS_API_KEY, HF_TOKEN],
+    secrets=[OPENAI_API_KEY, SUPADATA_API_KEY, NEWS_API_KEY, HF_TOKEN, DIFFBOT_TOKEN],
     memory=4096
 )
 def analyze_url(req: https_fn.CallableRequest):
@@ -70,6 +77,37 @@ def analyze_url(req: https_fn.CallableRequest):
 
     data = req.data or {}
     url = str(data.get("url", "")).strip()
+
+    db = firestore.client()
+    # ///////////////////////////////
+    # Check if article already exists
+    existing = (
+        db.collection("analyzed_articles")
+        .where("url", "==", url)
+        .limit(1)
+        .stream()
+    )
+
+    existing_doc = next(existing, None)
+
+    if existing_doc:
+        print("[CACHE HIT] Returning stored analysis")
+
+        doc_data = existing_doc.to_dict()
+
+        return {
+            "text": doc_data.get("text", ""),
+            "issues": doc_data.get("issues", []),
+            "image_issues": doc_data.get("imageIssues", []),
+            "frames": [
+                f["url"] for f in doc_data.get("frames", [])
+            ],
+            "overall_analysis": doc_data.get("overallAnalysis", ""),
+            "bias_score": doc_data.get("biasRating", 0),
+            "alignment": doc_data.get("alignment", "Center")
+        }
+    # ///////////////////////////////
+
     is_video = bool(data.get("isVideo", False))
 
     if not url:
@@ -132,11 +170,52 @@ def analyze_url(req: https_fn.CallableRequest):
                 text = "There seems to be an issue with analyzing this link. Please try again or use a different link."
 
         else:
-            r = requests.get(url, timeout=30, headers={"User-Agent": "Mozilla/5.0"})
-            if r.status_code >= 400 or not r.text:
-                raise Exception(f"Article fetch HTTP {r.status_code}")
 
-            text = extract_text_from_html(r.text)
+            print("[ARTICLE] Trying Diffbot first")
+            text = fetch_article_with_diffbot(url, DIFFBOT_TOKEN.value)
+
+            PAYWALL_THRESHOLD = 300
+
+            # Diffbot returned a snippet — almost always a paywall. Don't bother
+            # with the fallback (it'll hit the same wall), short-circuit with a
+            # friendly message.
+            if text and len(text) < PAYWALL_THRESHOLD:
+                print(f"[ARTICLE] Suspected paywall (Diffbot returned {len(text)} chars)")
+                return {
+                    "text": "",
+                    "issues": [],
+                    "image_issues": [],
+                    "frames": [],
+                    "overall_analysis": (
+                        "This article appears to be behind a paywall, so we couldn't read the full text. "
+                        "Try a free article from this source, or use a different outlet."
+                    ),
+                    "bias_score": 0,
+                    "alignment": "Center",
+                }
+
+            # Diffbot returned nothing at all — try the direct fetch fallback.
+            if not text:
+                print("[ARTICLE] Diffbot returned nothing, falling back to direct fetch")
+                r = requests.get(url, timeout=15,
+                headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                    "Accept-Language": "en-US,en;q=0.5",
+                    "Accept-Encoding": "gzip, deflate, br",
+                    "Connection": "keep-alive",
+                })
+                print("[ARTICLE] Fetch complete")
+                print("[ARTICLE] Status:", r.status_code)
+                print("[ARTICLE] Final URL:", r.url)
+                print("[ARTICLE] Length:", len(r.text))
+
+                if r.status_code >= 400 or not r.text:
+                    raise Exception(f"Article fetch HTTP {r.status_code}")
+
+                text = extract_text_from_html(r.text)
+                print("[ARTICLE] Extracted length:", len(text))
+
             encoded_frames = []
 
         print("Encoded frames:", len(encoded_frames))
@@ -197,22 +276,46 @@ def analyze_url(req: https_fn.CallableRequest):
         print(f"[PERFORMANCE] total call: {end_call - start_call:.2f} sec")
 
         print(f"\n\n[OUTPUT] text: {text}")
-        issues = analysis.get("issues", [])
+        issues = verify_and_fix_issues(text, analysis.get("issues", []))
         image_issues = analysis.get("image_issues", [])
         bias_score = analysis.get("bias_score", 0)
         alignment = analysis.get("alignment", "Center")
         overall_analysis = analysis.get("summary", "No issues found.")
         print(f"\n\n[OUTPUT] issues: {issues}")
         print(f"\n\n[OUTPUT] vid issues: {image_issues}")
-        print(f"\n\n[OUTPUT] summary: {summary}")
+        print(f"\n\n[OUTPUT] summary: {overall_analysis }")
         print(f"\n\n[OUTPUT] bias score: {bias_score}")
         print(f"\n\n[OUTPUT] alignment: {alignment}")
 
+        # Filtering out the frames we dont use in image_issues to reduce
+        # data sent to client
+        used_indices = sorted(set(
+            int(issue["frame_index"])
+            for issue in image_issues
+            if "frame_index" in issue
+            and isinstance(issue["frame_index"], (int, float))
+            and int(issue["frame_index"]) < len(encoded_frames)
+        ))
+
+        filtered_frames = [
+            encoded_frames[i]
+            for i in used_indices
+            if i < len(encoded_frames)
+        ]
+
+        index_map = {old: new for new, old in enumerate(used_indices)}
+
+        for issue in image_issues:
+            if "frame_index" in issue:
+                old_index = int(issue["frame_index"])
+                if old_index in index_map:
+                    issue["frame_index"] = index_map[old_index]
 
         return {
             "text": text,
             "issues": issues,
             "image_issues": image_issues,
+            "frames": filtered_frames,
             "overall_analysis": overall_analysis,
             "bias_score": bias_score,
             "alignment": alignment
@@ -228,6 +331,39 @@ def analyze_url(req: https_fn.CallableRequest):
             message=f"OpenAI request failed: {repr(e)}"
         )
 
+def verify_and_fix_issues(text: str, issues: list) -> list:
+    fixed = []
+    for issue in issues:
+        quote = issue.get("quote", "")
+        start = issue.get("start")
+        end = issue.get("end")
+
+        if quote:
+            if (
+                start is not None and end is not None
+                and 0 <= start < end <= len(text)
+                and text[start:end] == quote
+            ):
+                fixed.append(issue)
+                continue
+
+            found = text.find(quote)
+            if found != -1:
+                issue["start"] = found
+                issue["end"] = found + len(quote)
+                fixed.append(issue)
+            else:
+                lower_text = text.lower()
+                lower_quote = quote.lower()
+                found_ci = lower_text.find(lower_quote)
+                if found_ci != -1:
+                    issue["start"] = found_ci
+                    issue["end"] = found_ci + len(quote)
+                    fixed.append(issue)
+        elif start is not None and end is not None and 0 <= start < end <= len(text):
+            fixed.append(issue)
+
+    return fixed
 
 def build_user_prompt(text: str) -> str:
     return f"""
@@ -260,15 +396,30 @@ OUTPUT REQUIREMENTS:
 - If no issues exist, return empty arrays.
 
 TEXT ANALYSIS:
-- When reporting issues, return CHARACTER POSITIONS within the transcript.
-- The "start" value must be the index of the first character of the problematic text.
-- The "end" value must be the index immediately after the final character.
+- When reporting issues, you MUST include:
+  - "quote": copy the EXACT verbatim text being flagged directly from the transcript (word-for-word, no changes)
+  - "start": the character index of the first character of the quote within the transcript
+  - "end": the character index immediately after the last character of the quote
 - Indices are based on the EXACT transcript provided below.
+- The "quote" field is mandatory. It must be a verbatim substring of the transcript.
 
 IMAGE ANALYSIS:
+- You are allowed to flag images that are:
+  - misleading
+  - emotionally manipulative
+  - contextually deceptive
+  - visually exaggerated
+  - implying claims not supported by the transcript
+
+- Examples of valid image issues:
+ - dramatic, exaggerated visuals unrelated to actual claims
+ - charts or graphics that are incorrect or being misrepresented
+ - staged or sensational imagery
+
 - Do NOT create more than 5 images analyses. If you find more than 5 image issues, only use the top 5 most relevant images that are UNIQUE from each other
 - frame_index = index of image in input (0 = first image)
 - Do NOT include start/end for image issues
+- Refer to them as part of the video, not images. i.e., "In this part of the video..."
 
 SUMMARY:
 - Give a modest overall evaluation on the quality/credibility of the given source
@@ -287,6 +438,7 @@ JSON FORMAT:
     {{
       "id": "ISSUE_1",
       "type": "left | right | fake",
+      "quote": "the exact verbatim text being flagged, copied directly from the transcript",
       "start": number,
       "end": number,
       "explanation": "clear explanation tied to the text span"
@@ -320,10 +472,138 @@ Transcript:
 {text}
 """.strip()
 
+# Helper function for Diffbot
+def fetch_article_with_diffbot(url: str, token: str) -> str | None:
+    try:
+        r = requests.get(
+            "https://api.diffbot.com/v3/article",
+            params={"token": token, "url": url},
+            timeout=30,
+        )
+        if r.status_code >= 400:
+            print("[DIFFBOT] HTTP", r.status_code, r.text[:200])
+            return None
+
+        data = r.json()
+        if data.get("errorCode"):
+            print("[DIFFBOT] Error:", data.get("error"))
+            return None
+
+        objects = data.get("objects", [])
+        if not objects:
+            print("[DIFFBOT] No objects returned")
+            return None
+
+        text = (objects[0].get("text") or "").strip()
+        if not text:
+            print("[DIFFBOT] Empty text")
+            return None
+
+        print("[DIFFBOT] Extracted length:", len(text))
+        return text
+
+    except Exception as e:
+        print("[DIFFBOT] Exception:", repr(e))
+        return None
 
 # using bs to filter out unrelated tags from our html response
 
+def _extract_from_jsonld(html: str) -> str | None:
+    # schema.org NewsArticle / Article / BlogPosting commonly embedded in
+    # <script type="application/ld+json"> for SEO. The articleBody field
+    # holds the full text on most modern news sites.
+    try:
+        soup = BeautifulSoup(html, "html.parser")
+    except Exception:
+        return None
+
+    for script in soup.find_all("script", type="application/ld+json"):
+        raw = script.string or script.get_text() or ""
+        if not raw.strip():
+            continue
+        try:
+            payload = json.loads(raw)
+        except Exception:
+            continue
+
+        candidates = []
+        if isinstance(payload, list):
+            candidates.extend(payload)
+        elif isinstance(payload, dict):
+            candidates.append(payload)
+            graph = payload.get("@graph")
+            if isinstance(graph, list):
+                candidates.extend(graph)
+
+        for obj in candidates:
+            if not isinstance(obj, dict):
+                continue
+            type_field = obj.get("@type", "")
+            types = type_field if isinstance(type_field, list) else [type_field]
+            if any(t in ("NewsArticle", "Article", "BlogPosting", "Report", "ReportageNewsArticle") for t in types):
+                body = obj.get("articleBody")
+                if isinstance(body, str) and body.strip():
+                    return body.strip()
+    return None
+
+
+def _extract_from_nextdata(html: str) -> str | None:
+    # Next.js apps embed full page state in <script id="__NEXT_DATA__">.
+    # Article body lives at site-specific paths, so do a recursive hunt
+    # for likely body fields with substantial text.
+    try:
+        soup = BeautifulSoup(html, "html.parser")
+        script = soup.find("script", id="__NEXT_DATA__")
+        if not script:
+            return None
+        raw = script.string or script.get_text() or ""
+        if not raw.strip():
+            return None
+        payload = json.loads(raw)
+    except Exception:
+        return None
+
+    candidates = []
+
+    def walk(node):
+        if isinstance(node, dict):
+            for key, val in node.items():
+                if key in ("articleBody", "body", "content", "bodyHtml") and isinstance(val, str) and len(val) > 500:
+                    candidates.append(val)
+                else:
+                    walk(val)
+        elif isinstance(node, list):
+            for item in node:
+                walk(item)
+
+    walk(payload)
+    if not candidates:
+        return None
+
+    best = max(candidates, key=len)
+    if "<" in best and ">" in best:
+        try:
+            best = BeautifulSoup(best, "html.parser").get_text("\n\n", strip=True)
+        except Exception:
+            pass
+    return best.strip() or None
+
+
 def extract_text_from_html(html: str) -> str:
+    jsonld_text = _extract_from_jsonld(html)
+    if jsonld_text and len(jsonld_text) > 300:
+        print(f"[SCRAPE] JSON-LD extraction succeeded: {len(jsonld_text)} chars")
+        return jsonld_text
+
+    nextdata_text = _extract_from_nextdata(html)
+    if nextdata_text and len(nextdata_text) > 300:
+        print(f"[SCRAPE] __NEXT_DATA__ extraction succeeded: {len(nextdata_text)} chars")
+        return nextdata_text
+
+    result = trafilatura.extract(html, include_comments=False, include_tables=False)
+    if result:
+            return result
+    print("[SCRAPE] trafilatura failed, defaulting to BS")
     soup = BeautifulSoup(html, "html.parser")
 
     for tag in soup(["script", "style", "nav", "footer", "header", "iframe", "form", "input",
@@ -350,7 +630,7 @@ async def fetch_transcript_async(url):
             supadata_endpoint,
             params={"url": url},
             headers={"x-api-key": SUPADATA_API_KEY.value},
-            timeout=60,
+            timeout=120,
         )
 
     loop = asyncio.get_event_loop()
@@ -444,17 +724,15 @@ def download_video(url):
         "encoding": "utf-8",
     }
 
+    original_stdout = sys.stdout
+    original_stderr = sys.stderr
+
     try:
-        original_stdout = sys.stdout
-        original_stderr = sys.stderr
         sys.stdout = io.StringIO()
         sys.stderr = io.StringIO()
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             result = ydl.extract_info(url, download=True)
-
-        sys.stdout = original_stdout
-        sys.stderr = original_stderr
 
         if not result:
             raise Exception("yt_dlp returned no result")
@@ -467,10 +745,12 @@ def download_video(url):
         return file_path
 
     except Exception as e:
+        print("YT-DLP ERROR:", repr(e))
+        return None   # ✅ IMPORTANT: don't re-raise
+
+    finally:
         sys.stdout = original_stdout
         sys.stderr = original_stderr
-        print("YT-DLP ERROR:", repr(e))
-        raise
 
 
 # encoding to meet openai api's img expectations
@@ -546,6 +826,32 @@ def get_clip(hf_token):
     return clip_model, clip_processor
 # firebase deploy --only functions
 
+
+BLOCKED_HOSTS = {
+    # Hard paywalls
+    "wsj.com", "ft.com", "theinformation.com", "bloomberg.com", "barrons.com",
+    # Metered paywalls
+    "nytimes.com", "washingtonpost.com", "theatlantic.com", "newyorker.com",
+    "economist.com", "latimes.com", "bostonglobe.com", "wired.com",
+    "businessinsider.com", "thetimes.co.uk",
+    # Heavy bot protection
+    "forbes.com", "msn.com",
+    # Vox Media properties — heavy React rendering, both Diffbot and our fallback fail
+    "vulture.com", "theverge.com", "nymag.com", "eater.com",
+    "polygon.com", "sbnation.com",
+}
+
+def _is_blocked_host(url: str) -> bool:
+    from urllib.parse import urlparse
+    try:
+        host = (urlparse(url).hostname or "").lower()
+    except Exception:
+        return False
+    if host.startswith("www."):
+        host = host[4:]
+    return any(host == b or host.endswith("." + b) for b in BLOCKED_HOSTS)
+
+
 @https_fn.on_call(
     secrets=[NEWS_API_KEY],
     memory=512
@@ -561,6 +867,10 @@ def get_home_news(req: https_fn.CallableRequest):
     topic = str(data.get("topic", "All")).strip()
     search = str(data.get("search", "")).strip()
 
+    # Pagination
+    page = int(data.get("page", 1))
+    page_size = 20
+
     headers = {
         "X-Api-Key": NEWS_API_KEY.value
     }
@@ -574,10 +884,12 @@ def get_home_news(req: https_fn.CallableRequest):
                     "q": search,
                     "language": "en",
                     "sortBy": "publishedAt",
-                    "pageSize": 10
+                    "pageSize": page_size,
+                    "page": page
                 },
                 timeout=20
             )
+
         elif topic == "Business":
             response = requests.get(
                 "https://newsapi.org/v2/top-headlines",
@@ -585,10 +897,12 @@ def get_home_news(req: https_fn.CallableRequest):
                 params={
                     "country": "us",
                     "category": "business",
-                    "pageSize": 10
+                    "pageSize": page_size,
+                    "page": page
                 },
                 timeout=20
             )
+
         elif topic == "Tech":
             response = requests.get(
                 "https://newsapi.org/v2/top-headlines",
@@ -596,10 +910,12 @@ def get_home_news(req: https_fn.CallableRequest):
                 params={
                     "country": "us",
                     "category": "technology",
-                    "pageSize": 10
+                    "pageSize": page_size,
+                    "page": page
                 },
                 timeout=20
             )
+
         elif topic == "International":
             response = requests.get(
                 "https://newsapi.org/v2/everything",
@@ -608,10 +924,12 @@ def get_home_news(req: https_fn.CallableRequest):
                     "q": "international OR world news",
                     "language": "en",
                     "sortBy": "publishedAt",
-                    "pageSize": 10
+                    "pageSize": page_size,
+                    "page": page
                 },
                 timeout=20
             )
+
         elif topic == "Politics":
             response = requests.get(
                 "https://newsapi.org/v2/everything",
@@ -620,17 +938,20 @@ def get_home_news(req: https_fn.CallableRequest):
                     "q": "politics OR government OR election",
                     "language": "en",
                     "sortBy": "publishedAt",
-                    "pageSize": 10
+                    "pageSize": page_size,
+                    "page": page
                 },
                 timeout=20
             )
+
         else:
             response = requests.get(
                 "https://newsapi.org/v2/top-headlines",
                 headers=headers,
                 params={
                     "country": "us",
-                    "pageSize": 10
+                    "pageSize": page_size,
+                    "page": page
                 },
                 timeout=20
             )
@@ -642,14 +963,22 @@ def get_home_news(req: https_fn.CallableRequest):
 
         articles = []
         for article in payload.get("articles", []):
+            url_value = article.get("url") or ""
+            if _is_blocked_host(url_value):
+                continue
             articles.append({
                 "title": article.get("title") or "Untitled",
                 "imageUrl": article.get("urlToImage") or "",
-                "url": article.get("url") or "",
+                "url": url_value,
                 "source": (article.get("source") or {}).get("name") or "Unknown"
             })
 
-        return {"articles": articles}
+        return {
+            "articles": articles,
+            "totalResults": payload.get("totalResults", 0),
+            "page": page,
+            "pageSize": page_size
+        }
 
     except Exception as e:
         raise https_fn.HttpsError(

@@ -28,6 +28,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseAuth
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.Image
+import com.example.blindspotnews.R
 
 @Composable
 fun ScreenOne(
@@ -38,26 +44,14 @@ fun ScreenOne(
     val uiState by viewModel.uiState.collectAsState()
     val userEmail = FirebaseAuth.getInstance().currentUser?.email ?: "Guest"
 
-    var search by remember { mutableStateOf("") }
-    var selectedTopic by remember { mutableStateOf("All") }
-
     val topics = listOf("All", "Business", "International", "Politics", "Tech")
 
     LaunchedEffect(Unit) {
-        viewModel.loadNews(selectedTopic, search)
+        viewModel.loadNews(viewModel.selectedTopic, viewModel.search, reset = true)
     }
 
     Scaffold(
-        containerColor = AppColors.background(),
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { navController.navigate("analysis_test") },
-                containerColor = AppColors.buttonBackground(),
-                contentColor = AppColors.buttonText()
-            ) {
-                Text("+", fontWeight = FontWeight.Bold)
-            }
-        }
+        containerColor = AppColors.background()
     ) { padding ->
         Column(
             modifier = Modifier
@@ -70,13 +64,20 @@ fun ScreenOne(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Spacer(modifier = Modifier.width(48.dp))
+
+                Image(
+                    painter = painterResource(id = R.drawable.blindspotnews_transparent),
+                    contentDescription = "Logo",
+                    modifier = Modifier
+                        .size(70.dp)
+                        .padding(start = 2.dp, end = 8.dp)
+                )
 
                 Text(
                     text = "Home",
                     modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                    textAlign = TextAlign.Center,
+                    textAlign = TextAlign.Start,
                     color = AppColors.text()
                 )
 
@@ -107,12 +108,16 @@ fun ScreenOne(
             Spacer(modifier = Modifier.height(16.dp))
 
             OutlinedTextField(
-                value = search,
-                onValueChange = { search = it },
+                value = viewModel.search,
+                onValueChange = { viewModel.search = it },
                 placeholder = { Text("Search news") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 shape = RoundedCornerShape(16.dp),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(
+                    onSearch = { viewModel.loadNews(viewModel.selectedTopic, viewModel.search, reset = true) }
+                ),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = AppColors.text(),
                     unfocusedBorderColor = AppColors.text(),
@@ -134,10 +139,10 @@ fun ScreenOne(
             ) {
                 topics.forEach { topic ->
                     FilterChip(
-                        selected = selectedTopic == topic,
+                        selected = viewModel.selectedTopic == topic,
                         onClick = {
-                            selectedTopic = topic
-                            viewModel.loadNews(selectedTopic, search)
+                            viewModel.selectedTopic = topic
+                            viewModel.loadNews(viewModel.selectedTopic, viewModel.search, reset = true)
                         },
                         label = { Text(topic) },
                         colors = FilterChipDefaults.filterChipColors(
@@ -148,7 +153,7 @@ fun ScreenOne(
                         ),
                         border = FilterChipDefaults.filterChipBorder(
                             enabled = true,
-                            selected = selectedTopic == topic,
+                            selected = viewModel.selectedTopic == topic,
                             borderColor = AppColors.text(),
                             selectedBorderColor = AppColors.text()
                         )
@@ -158,20 +163,36 @@ fun ScreenOne(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            Button(
-                onClick = { viewModel.loadNews(selectedTopic, search) },
-                modifier = Modifier
-                    .align(Alignment.End)
-                    .height(42.dp)
-                    .width(58.dp),
-                shape = CircleShape,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = AppColors.buttonBackground(),
-                    contentColor = AppColors.buttonText()
-                ),
-                contentPadding = PaddingValues(0.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("↻", style = MaterialTheme.typography.titleLarge)
+                Button(
+                    onClick = { navController.navigate("analysis_test") },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AppColors.buttonBackground(),
+                        contentColor = AppColors.buttonText()
+                    )
+                ) {
+                    Text("Analyze an Article or Video")
+                }
+
+                Button(
+                    onClick = { viewModel.loadNews(viewModel.selectedTopic, viewModel.search) },
+                    modifier = Modifier
+                        .height(42.dp)
+                        .width(58.dp),
+                    shape = CircleShape,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AppColors.buttonBackground(),
+                        contentColor = AppColors.buttonText()
+                    ),
+                    contentPadding = PaddingValues(0.dp)
+                ) {
+                    Text("↻", style = MaterialTheme.typography.titleLarge)
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -203,11 +224,30 @@ fun ScreenOne(
                                 article = article,
                                 onClick = {
                                     if (article.url.isNotBlank()) {
-                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(article.url))
-                                        context.startActivity(intent)
+                                        val encodedUrl = Uri.encode(article.url)
+                                        navController.navigate("analysis_test?url=$encodedUrl")
                                     }
                                 }
                             )
+                        }
+
+                        if (uiState.hasMore) {
+                            item {
+                                LaunchedEffect(uiState.articles.size) {
+                                    if (uiState.articles.isNotEmpty() && !uiState.isLoadingMore) {
+                                        viewModel.loadMoreNews()
+                                    }
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator(color = AppColors.text())
+                                }
+                            }
                         }
                     }
                 }
