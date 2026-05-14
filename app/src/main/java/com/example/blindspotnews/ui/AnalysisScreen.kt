@@ -290,7 +290,7 @@ fun AnalysisScreen(
                                                                     .fillMaxWidth()
                                                                     .height(150.dp)
                                                                     .clickable {
-                                                                        selectedImageUrl = data
+                                                                        selectedBitmap = bitmap
                                                                     }
                                                             )
                                                         }

@@ -20,7 +20,11 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    buildFeatures { compose = true }
+    buildFeatures {
+        compose = true
+        viewBinding = true
+
+    }
     //composeOptions {
         // Must match your Kotlin plugin 1.9.24
         //kotlinCompilerExtensionVersion = "1.5.15"
@@ -41,9 +45,6 @@ android {
     }
     kotlinOptions {
         jvmTarget = "17"
-    }
-    buildFeatures {
-        viewBinding = true
     }
 }
 
