@@ -1,0 +1,5 @@
+BlindSpotNews is an AI-powered Android app designed to help users identify bias, misinformation, and misleading framing in news articles and short-form social media content. Our goal is to create a more unbiased and transparent source of news analysis, especially for platforms like TikTok, YouTube Shorts, and other fast-paced media where misinformation can spread quickly.
+
+Users can paste article URLs or share media directly into the app, where AI analyzes the content and provides a bias score, political alignment, summaries, and explanations of potentially misleading sections. The app also supports video analysis by generating transcripts and examining spoken or visual content for biased framing and misinformation.
+
+BlindSpotNews was built using Kotlin and Jetpack Compose for the frontend, with Firebase Cloud Functions and OpenAI APIs powering the backend analysis. The app aims to promote media literacy and encourage users to think more critically about the content they consume online.
